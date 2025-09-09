@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { GameDataContext } from '../../contexts/GameDataContext';
 import type { ClassData, PasswordChallenge } from '../../types';
+import { PasswordRankingModal } from './PasswordRankingModal';
 
 const ChallengeForm: React.FC<{
     initialData?: PasswordChallenge | null;
-    onSave: (data: Omit<PasswordChallenge, 'id' | 'creatorName' | 'status' | 'unlockedTimestamp'>, id?: string) => Promise<void>;
+    onSave: (data: Omit<PasswordChallenge, 'id' | 'creatorName' | 'status' | 'unlockedTimestamp'>, id?: string) => Promise<boolean>;
     onCancel?: () => void;
     teacherClasses: ClassData[];
 }> = ({ initialData, onSave, onCancel, teacherClasses }) => {
@@ -39,7 +40,13 @@ const ChallengeForm: React.FC<{
             digitCount: password.length, allowRepeats: new Set(password.split('')).size !== password.length,
             classCode: selectedClass,
         };
-        await onSave(challengeData, initialData?.id);
+        const success = await onSave(challengeData, initialData?.id);
+        if (success && !isEditing) {
+            setTitle('');
+            setPassword('');
+            setRules('');
+            setSelectedClass('');
+        }
     };
 
     return (
@@ -69,11 +76,19 @@ export const PasswordChallengeManager: React.FC<{ teacherClasses: ClassData[] }>
         deletePasswordChallenge, unlockPasswordChallenge, clearChallengeRanking 
     } = useContext(GameDataContext);
     const [editingChallenge, setEditingChallenge] = useState<PasswordChallenge | null>(null);
+    const [viewingRanking, setViewingRanking] = useState<PasswordChallenge | null>(null);
+    const [feedback, setFeedback] = useState('');
 
-    const handleSaveChallenge = async (data: any, id?: string) => {
-        if (id) await updatePasswordChallenge(id, data);
-        else await createPasswordChallenge(data);
-        setEditingChallenge(null);
+
+    const handleSaveChallenge = async (data: any, id?: string): Promise<boolean> => {
+        const result = id ? await updatePasswordChallenge(id, data) : await createPasswordChallenge(data);
+        if (result.status === 'success') {
+            setEditingChallenge(null);
+            setFeedback(id ? 'Desafio atualizado com sucesso!' : 'Desafio criado com sucesso!');
+            setTimeout(() => setFeedback(''), 3000);
+            return true;
+        }
+        return false;
     };
     
     const handleDelete = (id: string) => {
@@ -89,6 +104,8 @@ export const PasswordChallengeManager: React.FC<{ teacherClasses: ClassData[] }>
     }
 
     return (
+    <>
+        {viewingRanking && <PasswordRankingModal challenge={viewingRanking} onClose={() => setViewingRanking(null)} />}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div>
                  <ChallengeForm 
@@ -111,6 +128,7 @@ export const PasswordChallengeManager: React.FC<{ teacherClasses: ClassData[] }>
                                <span className={`px-2 py-0.5 text-xs rounded-full ${c.status === 'locked' ? 'bg-red-800 text-red-300' : 'bg-green-800 text-green-300'}`}>{c.status}</span>
                            </div>
                            <div className="mt-2 flex gap-1 flex-wrap text-xs">
+                               <button onClick={() => setViewingRanking(c)} className="px-2 py-1 bg-indigo-600 rounded">Ranking</button>
                                <button onClick={() => setEditingChallenge(c)} className="px-2 py-1 bg-sky-700 rounded">Editar</button>
                                {c.status === 'locked' && <button onClick={() => unlockPasswordChallenge(c.id)} className="px-2 py-1 bg-green-600 rounded">Desbloquear</button>}
                                <button onClick={() => handleClearRanking(c.id)} className="px-2 py-1 bg-yellow-700 rounded">Limpar Ranking</button>
@@ -121,5 +139,12 @@ export const PasswordChallengeManager: React.FC<{ teacherClasses: ClassData[] }>
                 </div>
             </div>
         </div>
+        {feedback && (
+            <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-green-600 text-white font-semibold px-6 py-3 rounded-full shadow-lg z-50 animate-fade-in-down">
+                <i className="fas fa-check-circle mr-2"></i>
+                {feedback}
+            </div>
+        )}
+    </>
     );
 };

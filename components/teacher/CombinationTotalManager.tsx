@@ -79,6 +79,7 @@ export const CombinationTotalManager: React.FC<CombinationTotalManagerProps> = (
     const [title, setTitle] = useState('');
     const [selectedClass, setSelectedClass] = useState<string>('');
     const [error, setError] = useState('');
+    const [feedback, setFeedback] = useState('');
     const [viewingRanking, setViewingRanking] = useState<CombinacaoTotalChallenge | null>(null);
 
     const possibleCombinations = useMemo(() => {
@@ -100,7 +101,10 @@ export const CombinationTotalManager: React.FC<CombinationTotalManagerProps> = (
         });
 
         if (result.status === 'success') {
-            setTitle(''); setSelectedClass('');
+            setTitle(''); 
+            setSelectedClass('');
+            setFeedback('Desafio de Combinação Total criado com sucesso!');
+            setTimeout(() => setFeedback(''), 3000);
         } else {
             setError(result.message || 'Erro desconhecido.');
         }
@@ -166,6 +170,12 @@ export const CombinationTotalManager: React.FC<CombinationTotalManagerProps> = (
                     </div>
                 </div>
             </div>
+            {feedback && (
+                <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-green-600 text-white font-semibold px-6 py-3 rounded-full shadow-lg z-50 animate-fade-in-down">
+                    <i className="fas fa-check-circle mr-2"></i>
+                    {feedback}
+                </div>
+            )}
         </>
     );
 };
