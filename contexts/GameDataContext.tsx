@@ -26,6 +26,8 @@ interface GameDataContextType {
 
   // Teacher Actions
   createClass: (className: string) => Promise<{ status: 'success' | 'error' | 'duplicate_name'; classCode?: string; message?: string }>;
+  deleteClass: (classCode: string) => Promise<void>;
+  deleteStudent: (studentName: string) => Promise<void>;
   createPasswordChallenge: (challengeData: Omit<PasswordChallenge, 'id' | 'creatorName' | 'status' | 'unlockedTimestamp'>) => Promise<{ status: 'success' | 'error', message?: string }>;
   updatePasswordChallenge: (challengeId: string, challengeData: Partial<Omit<PasswordChallenge, 'id' | 'creatorName'>>) => Promise<{ status: 'success' | 'error', message?: string }>;
   deletePasswordChallenge: (challengeId: string) => Promise<void>;
@@ -194,6 +196,40 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return { status: 'success', classCode: newClassCode };
   }, [user, classes]);
 
+  const deleteClass = useCallback(async (classCode: string) => {
+    if (!user || user.role !== 'teacher') return;
+    const batch = db.batch();
+    
+    // 1. Unlink students
+    const studentsInClass = getStudentsInClass(classCode);
+    studentsInClass.forEach(student => {
+        const studentRef = db.collection('users').doc(student.name);
+        batch.update(studentRef, { classCode: firebase.firestore.FieldValue.delete() });
+    });
+    
+    // 2. Remove class from teacher's list
+    const teacherRef = db.collection('users').doc(user.name);
+    batch.update(teacherRef, { classes: firebase.firestore.FieldValue.arrayRemove(classCode) });
+
+    // 3. Delete class document
+    const classRef = db.collection('classes').doc(classCode);
+    batch.delete(classRef);
+
+    await batch.commit();
+  }, [user, getStudentsInClass]);
+  
+  const deleteStudent = useCallback(async (studentName: string) => {
+    if (!user || user.role !== 'teacher') return;
+    const batch = db.batch();
+    const studentRef = db.collection('users').doc(studentName);
+    const presenceRef = db.collection('presence').doc(studentName);
+
+    batch.delete(studentRef);
+    batch.delete(presenceRef);
+    
+    await batch.commit();
+  }, [user]);
+
   const createPasswordChallenge = useCallback(async (challengeData: any): Promise<{ status: 'success' | 'error', message?: string }> => {
     if (!user || user.role !== 'teacher') return { status: 'error', message: 'Apenas professores podem criar desafios.' };
     const newChallenge = {
@@ -359,7 +395,7 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const value: GameDataContextType = {
     allUsers, classes, passwordChallenges, combinacaoTotalChallenges, activeAdedonhaSession, activeAdedonhaRound, adedonhaSubmissions, onlineStudents, offlineStudents,
     getClassesForTeacher, getStudentsInClass, getAllUsers,
-    createClass, createPasswordChallenge, updatePasswordChallenge, deletePasswordChallenge, unlockPasswordChallenge, lockPasswordChallenge, clearChallengeRanking,
+    createClass, deleteClass, deleteStudent, createPasswordChallenge, updatePasswordChallenge, deletePasswordChallenge, unlockPasswordChallenge, lockPasswordChallenge, clearChallengeRanking,
     createCombinacaoTotalChallenge, deleteCombinacaoTotalChallenge, unlockCombinacaoTotalChallenge, lockCombinacaoTotalChallenge, clearCombinacaoTotalRanking,
     createAdedonhaSession, startAdedonhaRound, endAdedonhaRoundForScoring, updateSubmissionScore, finalizeRound, endAdedonhaSession,
     submitAdedonhaAnswer,

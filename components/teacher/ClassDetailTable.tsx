@@ -36,9 +36,10 @@ const getRankingInfo = (rank: number) => {
 interface ClassDetailTableProps {
     students: UserProfile[];
     onViewReport: (student: UserProfile) => void;
+    onDeleteStudent: (student: UserProfile) => void;
 }
 
-export const ClassDetailTable: React.FC<ClassDetailTableProps> = ({ students, onViewReport }) => {
+export const ClassDetailTable: React.FC<ClassDetailTableProps> = ({ students, onViewReport, onDeleteStudent }) => {
     return (
         <div className="overflow-x-auto relative shadow-md sm:rounded-lg" style={{ maxHeight: 'calc(100vh - 250px)'}}>
             <table className="w-full text-sm text-left text-slate-300">
@@ -111,9 +112,14 @@ export const ClassDetailTable: React.FC<ClassDetailTableProps> = ({ students, on
                                     </div>
                                 </td>
                                 <td className="p-2 border-l border-slate-700 text-center">
-                                    <button onClick={() => onViewReport(student)} className="text-sky-400 hover:text-sky-300" title="Ver relatório completo">
-                                        <i className="fas fa-chart-bar text-lg"></i>
-                                    </button>
+                                    <div className="flex items-center justify-center gap-4">
+                                        <button onClick={() => onViewReport(student)} className="text-sky-400 hover:text-sky-300" title="Ver relatório completo">
+                                            <i className="fas fa-chart-bar text-lg"></i>
+                                        </button>
+                                        <button onClick={() => onDeleteStudent(student)} className="text-slate-400 hover:text-red-500" title="Excluir aluno">
+                                            <i className="fas fa-trash-alt text-lg"></i>
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         );

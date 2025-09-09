@@ -10,10 +10,11 @@ import { ClassDetailTable } from './teacher/ClassDetailTable';
 import { AdedonhaManager } from './teacher/AdedonhaManager';
 import { PasswordChallengeManager } from './teacher/PasswordChallengeManager';
 import { CombinationTotalManager } from './teacher/CombinationTotalManager';
+import { ConfirmationModal } from './ConfirmationModal';
 
 export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGames: () => void }> = ({ onReturnToMenu, onAccessGames }) => {
   const { user, logout } = useContext(AuthContext);
-  const { getClassesForTeacher, getStudentsInClass, createClass } = useContext(GameDataContext);
+  const { getClassesForTeacher, getStudentsInClass, createClass, deleteClass, deleteStudent } = useContext(GameDataContext);
 
   const [newClassName, setNewClassName] = useState('');
   const teacherClasses = user?.name ? getClassesForTeacher(user.name) : [];
@@ -26,6 +27,9 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
   const [selectedStudent, setSelectedStudent] = useState<UserProfile | null>(null);
   const [copyMessage, setCopyMessage] = useState('');
   const [activeTab, setActiveTab] = useState<'classes' | 'challenges' | 'adedonha' | 'combinacao-total'>('classes');
+  
+  const [classToDelete, setClassToDelete] = useState<ClassData | null>(null);
+  const [studentToDelete, setStudentToDelete] = useState<UserProfile | null>(null);
 
   useEffect(() => {
     if (selectedClassCode) {
@@ -55,6 +59,20 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
     }
   };
   
+  const handleDeleteClass = async () => {
+    if (classToDelete) {
+        await deleteClass(classToDelete.classCode);
+        setClassToDelete(null);
+    }
+  };
+
+  const handleDeleteStudent = async () => {
+    if (studentToDelete) {
+        await deleteStudent(studentToDelete.name);
+        setStudentToDelete(null);
+    }
+  };
+
   const handleCopyCode = (code: string) => {
     navigator.clipboard.writeText(code).then(() => {
         setCopyMessage('Código copiado!');
@@ -85,7 +103,14 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
       <div className="min-h-screen bg-slate-900 flex flex-col items-center p-4 text-slate-200 select-none">
         <ReportModal isOpen={isReportModalOpen} onClose={() => setReportModalOpen(false)} student={selectedStudent} />
         <ClassReportModal isOpen={isClassReportModalOpen} onClose={() => setClassReportModalOpen(false)} students={students} className={selectedClass.className} />
-        
+        <ConfirmationModal
+            isOpen={!!studentToDelete}
+            onClose={() => setStudentToDelete(null)}
+            onConfirm={handleDeleteStudent}
+            title={`Excluir Aluno ${studentToDelete?.name}`}
+            message={`Tem certeza que deseja excluir o(a) aluno(a) ${studentToDelete?.name}? TODOS os dados e o progresso serão permanentemente apagados. Esta ação não pode ser desfeita.`}
+        />
+
         <div className="bg-slate-800 shadow-2xl rounded-xl p-6 md:p-8 w-full max-w-7xl">
             <header className="flex flex-wrap justify-between items-center gap-4 mb-6">
                 <button 
@@ -118,7 +143,7 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
             </header>
             
             {students.length > 0 
-              ? <ClassDetailTable students={students} onViewReport={handleViewStudentReport} />
+              ? <ClassDetailTable students={students} onViewReport={handleViewStudentReport} onDeleteStudent={setStudentToDelete} />
               : <p className="text-slate-400 text-center mt-8 py-16">Nenhum aluno nesta turma ainda. Compartilhe o código da turma!</p>
             }
         </div>
@@ -138,6 +163,14 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
   // Main Dashboard View (no class selected)
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-slate-200 select-none">
+       <ConfirmationModal
+            isOpen={!!classToDelete}
+            onClose={() => setClassToDelete(null)}
+            onConfirm={handleDeleteClass}
+            title={`Excluir Turma ${classToDelete?.className}`}
+            message="Tem certeza que deseja excluir esta turma? Todos os alunos serão desvinculados, mas suas contas NÃO serão excluídas. Esta ação não pode ser desfeita."
+        />
+
       <div className="relative bg-slate-800 shadow-2xl rounded-xl p-6 md:p-8 w-full max-w-6xl">
         <header className="mb-8">
             <div className="flex justify-between items-center flex-wrap gap-4">
@@ -179,9 +212,16 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
                             <h2 className="text-xl font-bold text-sky-300 mb-4">Minhas Turmas</h2>
                             <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
                                 {teacherClasses.length > 0 ? teacherClasses.map(c => (
-                                    <div key={c.classCode} onClick={() => setSelectedClassCode(c.classCode)} className="p-4 bg-slate-700 rounded-lg cursor-pointer hover:bg-sky-900/50 border-2 border-transparent hover:border-sky-600 transition-all">
+                                    <div key={c.classCode} onClick={() => setSelectedClassCode(c.classCode)} className="relative p-4 bg-slate-700 rounded-lg cursor-pointer hover:bg-sky-900/50 border-2 border-transparent hover:border-sky-600 transition-all group">
                                         <h3 className="font-bold text-lg text-sky-300">{c.className}</h3>
                                         <p className="text-sm text-slate-400">Código: <span className="font-mono">{c.classCode}</span></p>
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); setClassToDelete(c); }} 
+                                            className="absolute top-2 right-2 text-slate-500 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                                            aria-label={`Excluir turma ${c.className}`}
+                                        >
+                                            <i className="fas fa-trash-alt"></i>
+                                        </button>
                                     </div>
                                 )) : (
                                     <p className="text-slate-400">Você ainda não criou nenhuma turma.</p>
