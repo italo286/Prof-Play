@@ -13,7 +13,7 @@ import { CombinationTotalManager } from './teacher/CombinationTotalManager';
 
 export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGames: () => void }> = ({ onReturnToMenu, onAccessGames }) => {
   const { user, logout } = useContext(AuthContext);
-  const { getClassesForTeacher, getStudentsInClass } = useContext(GameDataContext);
+  const { getClassesForTeacher, getStudentsInClass, createClass } = useContext(GameDataContext);
 
   const [newClassName, setNewClassName] = useState('');
   const teacherClasses = user?.name ? getClassesForTeacher(user.name) : [];
@@ -47,12 +47,12 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
       return;
     }
     setError('');
-    // const result = await createClass(newClassName.trim());
-    // if (result.status === 'success') {
-    //   setNewClassName('');
-    // } else {
-    //   setError(result.message || 'Erro ao criar a turma.');
-    // }
+    const result = await createClass(newClassName.trim());
+    if (result.status === 'success') {
+      setNewClassName('');
+    } else {
+      setError(result.message || 'Erro ao criar a turma.');
+    }
   };
   
   const handleCopyCode = (code: string) => {
