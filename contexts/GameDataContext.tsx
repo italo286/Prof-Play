@@ -31,6 +31,7 @@ interface GameDataContextType {
   createClass: (className: string) => Promise<{ status: 'success' | 'error' | 'duplicate_name'; classCode?: string; message?: string }>;
   deleteClass: (classCode: string) => Promise<void>;
   deleteStudent: (studentName: string) => Promise<void>;
+  updateStudentPassword: (studentName: string, newPassword: string) => Promise<{ status: 'success' | 'error', message?: string }>;
   createPasswordChallenge: (challengeData: Omit<PasswordChallenge, 'id' | 'creatorName' | 'status' | 'unlockedTimestamp'>) => Promise<{ status: 'success' | 'error', message?: string }>;
   updatePasswordChallenge: (challengeId: string, challengeData: Partial<Omit<PasswordChallenge, 'id' | 'creatorName'>>) => Promise<{ status: 'success' | 'error', message?: string }>;
   deletePasswordChallenge: (challengeId: string) => Promise<void>;
@@ -260,6 +261,20 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     await batch.commit();
   }, [user]);
 
+  const updateStudentPassword = useCallback(async (studentName: string, newPassword: string): Promise<{ status: 'success' | 'error', message?: string }> => {
+    if (!user || user.role !== 'teacher') return { status: 'error', message: 'Ação não permitida.' };
+    if (!newPassword || newPassword.length < 4) return { status: 'error', message: 'A senha deve ter pelo menos 4 caracteres.' };
+
+    const studentRef = doc(db, 'users', studentName);
+    try {
+        await updateDoc(studentRef, { password: newPassword });
+        return { status: 'success' };
+    } catch (e) {
+        console.error("Error updating password:", e);
+        return { status: 'error', message: 'Falha ao atualizar a senha no banco de dados.' };
+    }
+  }, [user]);
+
   const createPasswordChallenge = useCallback(async (challengeData: any): Promise<{ status: 'success' | 'error', message?: string }> => {
     if (!user || user.role !== 'teacher') return { status: 'error', message: 'Apenas professores podem criar desafios.' };
     const newChallenge = {
@@ -438,6 +453,7 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     createClass: createClass,
     deleteClass: deleteClass,
     deleteStudent: deleteStudent,
+    updateStudentPassword: updateStudentPassword,
     createPasswordChallenge: createPasswordChallenge,
     updatePasswordChallenge: updatePasswordChallenge,
     deletePasswordChallenge: deletePasswordChallenge,

@@ -1,7 +1,7 @@
 import React, { useState, useContext, useEffect, useMemo } from 'react';
 import { AuthContext } from '../contexts/AuthContext';
 import { GameDataContext } from '../contexts/GameDataContext';
-import type { UserProfile, ClassData, PasswordChallenge } from '../types';
+import type { UserProfile, ClassData } from '../types';
 import { ReportModal } from './ReportModal';
 import { ClassReportModal } from './ClassReportModal';
 import { OnlineStudentsPanel } from './teacher/OnlineStudentsPanel';
@@ -11,10 +11,14 @@ import { AdedonhaManager } from './teacher/AdedonhaManager';
 import { PasswordChallengeManager } from './teacher/PasswordChallengeManager';
 import { CombinationTotalManager } from './teacher/CombinationTotalManager';
 import { ConfirmationModal } from './ConfirmationModal';
+import { EditStudentModal } from './teacher/EditStudentModal';
 
 export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGames: () => void }> = ({ onReturnToMenu, onAccessGames }) => {
   const { user, logout } = useContext(AuthContext);
-  const { getClassesForTeacher, getStudentsInClass, createClass, deleteClass, deleteStudent } = useContext(GameDataContext);
+  const { 
+    getClassesForTeacher, getStudentsInClass, createClass, deleteClass, deleteStudent,
+    onlineStudents: allOnlineStudents, offlineStudents: allOfflineStudents
+  } = useContext(GameDataContext);
 
   const [newClassName, setNewClassName] = useState('');
   const teacherClasses = user?.name ? getClassesForTeacher(user.name) : [];
@@ -30,6 +34,8 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
   
   const [classToDelete, setClassToDelete] = useState<ClassData | null>(null);
   const [studentToDelete, setStudentToDelete] = useState<UserProfile | null>(null);
+  const [studentToEdit, setStudentToEdit] = useState<UserProfile | null>(null);
+  const [classDetailTab, setClassDetailTab] = useState<'alunos' | 'atividade'>('alunos');
 
   useEffect(() => {
     if (selectedClassCode) {
@@ -43,6 +49,13 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
       setStudents([]);
     }
   }, [selectedClassCode, getStudentsInClass]);
+  
+  const onlineInClass = useMemo(() => allOnlineStudents.filter(s => s.classCode === selectedClassCode), [allOnlineStudents, selectedClassCode]);
+  const offlineInClass = useMemo(() => {
+    if (!selectedClassCode) return [];
+    const onlineNames = new Set(onlineInClass.map(s => s.name));
+    return getStudentsInClass(selectedClassCode).filter(s => !onlineNames.has(s.name));
+  }, [onlineInClass, getStudentsInClass, selectedClassCode]);
 
   const handleCreateClass = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,9 +123,10 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
             title={`Excluir Aluno ${studentToDelete?.name}`}
             message={`Tem certeza que deseja excluir o(a) aluno(a) ${studentToDelete?.name}? TODOS os dados e o progresso serão permanentemente apagados. Esta ação não pode ser desfeita.`}
         />
+        <EditStudentModal student={studentToEdit} onClose={() => setStudentToEdit(null)} />
 
         <div className="bg-slate-800 shadow-2xl rounded-xl p-6 md:p-8 w-full max-w-7xl">
-            <header className="flex flex-wrap justify-between items-center gap-4 mb-6">
+            <header className="flex flex-wrap justify-between items-center gap-4 mb-6 border-b border-slate-700 pb-4">
                 <button 
                     onClick={() => setSelectedClassCode(null)} 
                     className="text-slate-300 hover:text-sky-400 transition-colors flex items-center text-lg font-medium p-2 rounded-lg hover:bg-slate-700"
@@ -121,18 +135,9 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
                     <i className="fas fa-arrow-left mr-2"></i>
                     <span>Voltar para Turmas</span>
                 </button>
-                <div className="text-center">
+                <div className="text-center flex-grow">
                     <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-cyan-400">{selectedClass.className}</h1>
-                </div>
-                <div className='flex items-center gap-4'>
-                    <button
-                        onClick={() => setClassReportModalOpen(true)}
-                        className="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition-colors flex items-center gap-2"
-                    >
-                        <i className="fas fa-file-alt"></i>
-                        Relatório da Turma
-                    </button>
-                    <div className="flex items-center text-sm bg-slate-700 p-2 rounded-lg">
+                     <div className="flex items-center justify-center text-sm bg-slate-700 p-2 rounded-lg mt-2 max-w-xs mx-auto">
                         <span className="text-slate-400">Código:</span>
                         <span className="font-mono bg-slate-900 px-2 py-0.5 rounded ml-2">{selectedClass.classCode}</span>
                         <button onClick={() => handleCopyCode(selectedClass.classCode)} className="ml-3 text-sky-400 hover:text-sky-300 text-base" aria-label="Copiar código da turma">
@@ -140,12 +145,63 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
                         </button>
                     </div>
                 </div>
+                <button
+                    onClick={() => setClassReportModalOpen(true)}
+                    className="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition-colors flex items-center gap-2"
+                >
+                    <i className="fas fa-file-alt"></i>
+                    Relatório da Turma
+                </button>
             </header>
             
-            {students.length > 0 
-              ? <ClassDetailTable students={students} onViewReport={handleViewStudentReport} onDeleteStudent={setStudentToDelete} />
-              : <p className="text-slate-400 text-center mt-8 py-16">Nenhum aluno nesta turma ainda. Compartilhe o código da turma!</p>
-            }
+            <div className="mb-4 border-b border-slate-700 flex">
+                <button onClick={() => setClassDetailTab('alunos')} className={`px-4 py-3 font-semibold text-base transition-colors ${classDetailTab === 'alunos' ? 'text-sky-400 border-b-2 border-sky-400' : 'text-slate-400 hover:text-white'}`}>
+                    <i className="fas fa-users mr-2"></i>Alunos ({students.length})
+                </button>
+                <button onClick={() => setClassDetailTab('atividade')} className={`px-4 py-3 font-semibold text-base transition-colors ${classDetailTab === 'atividade' ? 'text-sky-400 border-b-2 border-sky-400' : 'text-slate-400 hover:text-white'}`}>
+                    <i className="fas fa-signal mr-2"></i>Atividade
+                </button>
+            </div>
+
+            <main>
+              {classDetailTab === 'alunos' && (
+                  students.length > 0 
+                    ? <ClassDetailTable students={students} onViewReport={handleViewStudentReport} onDeleteStudent={setStudentToDelete} onEditStudent={setStudentToEdit} />
+                    : <p className="text-slate-400 text-center mt-8 py-16">Nenhum aluno nesta turma ainda. Compartilhe o código da turma!</p>
+              )}
+               {classDetailTab === 'atividade' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
+                        <div className="bg-slate-900/70 p-6 rounded-lg">
+                            <h2 className="text-xl font-bold text-sky-300 mb-4">Online ({onlineInClass.length})</h2>
+                            <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
+                                {onlineInClass.length > 0 ? onlineInClass.map(student => (
+                                    <div key={student.name} className="flex items-center gap-3 p-2 bg-slate-700 rounded-lg">
+                                        <div className="relative flex-shrink-0">
+                                            {student.avatar && <img src={student.avatar} alt={`Avatar de ${student.name}`} className="w-10 h-10 rounded-full bg-slate-600" />}
+                                            <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-slate-700" title="Online"></div>
+                                        </div>
+                                        <p className="font-semibold text-slate-100">{student.name}</p>
+                                    </div>
+                                )) : <p className="text-slate-400 text-center pt-8">Ninguém online nesta turma.</p>}
+                            </div>
+                        </div>
+                        <div className="bg-slate-900/70 p-6 rounded-lg">
+                            <h2 className="text-xl font-bold text-slate-500 mb-4">Offline ({offlineInClass.length})</h2>
+                            <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
+                               {offlineInClass.length > 0 ? offlineInClass.map(student => (
+                                    <div key={student.name} className="flex items-center gap-3 p-2 bg-slate-700 rounded-lg opacity-60">
+                                        <div className="relative flex-shrink-0">
+                                            {student.avatar && <img src={student.avatar} alt={`Avatar de ${student.name}`} className="w-10 h-10 rounded-full bg-slate-600" />}
+                                            <div className="absolute bottom-0 right-0 w-3 h-3 bg-slate-500 rounded-full border-2 border-slate-700" title="Offline"></div>
+                                        </div>
+                                        <p className="font-semibold text-slate-300">{student.name}</p>
+                                    </div>
+                                )) : <p className="text-slate-500 text-center pt-8">Todos os alunos estão online!</p>}
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </main>
         </div>
         {copyMessage && (
             <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-green-600 text-white font-semibold px-6 py-3 rounded-full shadow-lg z-50 animate-fade-in-down">

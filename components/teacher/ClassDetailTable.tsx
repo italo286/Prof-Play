@@ -37,11 +37,12 @@ interface ClassDetailTableProps {
     students: UserProfile[];
     onViewReport: (student: UserProfile) => void;
     onDeleteStudent: (student: UserProfile) => void;
+    onEditStudent: (student: UserProfile) => void;
 }
 
-export const ClassDetailTable: React.FC<ClassDetailTableProps> = ({ students, onViewReport, onDeleteStudent }) => {
+export const ClassDetailTable: React.FC<ClassDetailTableProps> = ({ students, onViewReport, onDeleteStudent, onEditStudent }) => {
     return (
-        <div className="overflow-x-auto relative shadow-md sm:rounded-lg" style={{ maxHeight: 'calc(100vh - 250px)'}}>
+        <div className="overflow-x-auto relative shadow-md sm:rounded-lg" style={{ maxHeight: 'calc(100vh - 350px)'}}>
             <table className="w-full text-sm text-left text-slate-300">
                 <thead className="text-xs text-sky-300 uppercase bg-slate-900/95 backdrop-blur-sm sticky top-0 z-30">
                     <tr>
@@ -115,6 +116,9 @@ export const ClassDetailTable: React.FC<ClassDetailTableProps> = ({ students, on
                                     <div className="flex items-center justify-center gap-4">
                                         <button onClick={() => onViewReport(student)} className="text-sky-400 hover:text-sky-300" title="Ver relatório completo">
                                             <i className="fas fa-chart-bar text-lg"></i>
+                                        </button>
+                                        <button onClick={() => onEditStudent(student)} className="text-slate-400 hover:text-sky-500" title="Editar aluno">
+                                            <i className="fas fa-edit text-lg"></i>
                                         </button>
                                         <button onClick={() => onDeleteStudent(student)} className="text-slate-400 hover:text-red-500" title="Excluir aluno">
                                             <i className="fas fa-trash-alt text-lg"></i>
