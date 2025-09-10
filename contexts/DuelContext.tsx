@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect, useCallback, useContext } from 'react';
 import { db } from '../firebase';
-import firebase from 'firebase/compat/app';
+import { doc, collection, onSnapshot, addDoc, updateDoc, getDoc, deleteDoc, runTransaction, serverTimestamp, setDoc, arrayUnion } from 'firebase/firestore';
 import type { DuelInvitation, DuelState, DuelableGameMode, DuelPasswordPlayerState, DuelPlayer } from '../types';
 import { generateDuelChallenges, TOTAL_CHALLENGES } from '../data/duel';
 import { AuthContext } from './AuthContext';
@@ -39,11 +39,17 @@ export const DuelProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [activeDuel, setActiveDuel] = useState<DuelState | null>(null);
 
   useEffect(() => {
-    const unsubInvites = db.collection('invitations').onSnapshot(snapshot => {
-      setInvitations(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as DuelInvitation)));
+    const unsubInvites = onSnapshot(collection(db, 'invitations'), snapshot => {
+      // FIX: Use forEach to iterate over snapshot documents to avoid type errors.
+      const invites: DuelInvitation[] = [];
+      snapshot.forEach(d => invites.push({ id: d.id, ...d.data() } as DuelInvitation));
+      setInvitations(invites);
     });
-    const unsubDuels = db.collection('duels').onSnapshot(snapshot => {
-      setDuelStates(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as DuelState)));
+    const unsubDuels = onSnapshot(collection(db, 'duels'), snapshot => {
+      // FIX: Use forEach to iterate over snapshot documents to avoid type errors.
+      const duels: DuelState[] = [];
+      snapshot.forEach(d => duels.push({ id: d.id, ...d.data() } as DuelState));
+      setDuelStates(duels);
     });
     return () => {
       unsubInvites();
@@ -86,22 +92,22 @@ export const DuelProvider: React.FC<{ children: React.ReactNode }> = ({ children
         status: 'pending', 
         duelId, 
         gameMode,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp() 
+        createdAt: serverTimestamp() 
     };
-    await db.collection('invitations').add(newInvitation);
+    await addDoc(collection(db, 'invitations'), newInvitation);
   }, [user]);
 
   const answerDuelInvitation = useCallback(async (invitationId: string, answer: 'accepted' | 'declined') => {
-    const inviteRef = db.collection('invitations').doc(invitationId);
-    const inviteDoc = await inviteRef.get();
-    if (!inviteDoc.exists) return;
+    const inviteRef = doc(db, 'invitations', invitationId);
+    const inviteDoc = await getDoc(inviteRef);
+    if (!inviteDoc.exists()) return;
     const invitation = inviteDoc.data() as DuelInvitation;
     if (answer === 'declined') {
-        await inviteRef.update({ status: 'declined' });
+        await updateDoc(inviteRef, { status: 'declined' });
         return;
     }
     // Create Duel
-    await inviteRef.update({ status: 'accepted' });
+    await updateDoc(inviteRef, { status: 'accepted' });
     const challenges = generateDuelChallenges(invitation.gameMode);
     const players: [DuelPlayer, DuelPlayer] = [
         { name: invitation.from, progress: 0, timeFinished: null },
@@ -121,19 +127,19 @@ export const DuelProvider: React.FC<{ children: React.ReactNode }> = ({ children
             [invitation.to]: { password: '', rules: [], digitCount: 0, guesses: [], ready: false }
         }
     }
-    await db.collection('duels').doc(invitation.duelId).set(newDuel);
+    await setDoc(doc(db, 'duels', invitation.duelId), newDuel);
   }, []);
 
   const cancelDuelInvitation = useCallback(async (invitationId: string) => {
-    await db.collection('invitations').doc(invitationId).delete();
+    await deleteDoc(doc(db, 'invitations', invitationId));
   }, []);
 
   const updateDuelProgress = useCallback(async (duelId: string, progress: number) => {
     if (!user) return;
-    const duelRef = db.collection('duels').doc(duelId);
-    await db.runTransaction(async (transaction) => {
+    const duelRef = doc(db, 'duels', duelId);
+    await runTransaction(db, async (transaction) => {
         const doc = await transaction.get(duelRef);
-        if (!doc.exists) return;
+        if (!doc.exists()) return;
         const duel = doc.data() as DuelState;
         const playerIndex = duel.players.findIndex(p => p.name === user.name);
         if (playerIndex > -1) {
@@ -146,10 +152,10 @@ export const DuelProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const finishDuel = useCallback(async (duelId: string, timeFinished: number) => {
     if (!user) return;
-    const duelRef = db.collection('duels').doc(duelId);
-    await db.runTransaction(async (transaction) => {
+    const duelRef = doc(db, 'duels', duelId);
+    await runTransaction(db, async (transaction) => {
         const doc = await transaction.get(duelRef);
-        if (!doc.exists) return;
+        if (!doc.exists()) return;
         const duel = doc.data() as DuelState;
         const playerIndex = duel.players.findIndex(p => p.name === user.name);
         if (playerIndex === -1 || duel.players[playerIndex].timeFinished !== null) return;
@@ -187,39 +193,40 @@ export const DuelProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const handleDuelError = useCallback(async (duelId: string, progressToSet: number) => {
      if (!user) return;
-    const duelRef = db.collection('duels').doc(duelId);
-    const doc = await duelRef.get();
-    if (!doc.exists) return;
-    const duel = doc.data() as DuelState;
+    const duelRef = doc(db, 'duels', duelId);
+    const docSnap = await getDoc(duelRef);
+    if (!docSnap.exists()) return;
+    const duel = docSnap.data() as DuelState;
     const playerIndex = duel.players.findIndex(p => p.name === user.name);
     if (playerIndex > -1) {
         const newPlayers = [...duel.players];
         newPlayers[playerIndex].progress = progressToSet;
-        await duelRef.update({ players: newPlayers });
+        await updateDoc(duelRef, { players: newPlayers });
     }
   }, [user]);
 
   const setDuelPassword = useCallback(async (duelId: string, passwordData: any) => {
     if (!user) return;
+    const duelRef = doc(db, 'duels', duelId);
     const key = `passwordGameState.${user.name}`;
-    await db.collection('duels').doc(duelId).update({
+    await updateDoc(duelRef, {
         [key]: { ...passwordData, guesses: [], ready: true }
     });
     // Check if both are ready to start
-    const duelDoc = await db.collection('duels').doc(duelId).get();
+    const duelDoc = await getDoc(duelRef);
     const duel = duelDoc.data() as DuelState;
     const opponentName = duel.players.find(p => p.name !== user.name)?.name;
     if (opponentName && duel.passwordGameState?.[opponentName].ready) {
-        await db.collection('duels').doc(duelId).update({ status: 'playing' });
+        await updateDoc(duelRef, { status: 'playing' });
     }
   }, [user]);
   
   const submitDuelGuess = useCallback(async (duelId: string, guess: string) => {
     if (!user) return;
-    const duelRef = db.collection('duels').doc(duelId);
-    await db.runTransaction(async (transaction) => {
+    const duelRef = doc(db, 'duels', duelId);
+    await runTransaction(db, async (transaction) => {
         const doc = await transaction.get(duelRef);
-        if (!doc.exists) return;
+        if (!doc.exists()) return;
         const duel = doc.data() as DuelState;
         if (!duel.passwordGameState) return;
 
@@ -230,7 +237,7 @@ export const DuelProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const correctCount = calculatePasswordGuess(guess, opponentState.password);
         
         const selfKey = `passwordGameState.${user.name}.guesses`;
-        const newGuesses = firebase.firestore.FieldValue.arrayUnion({ guess, correctCount });
+        const newGuesses = arrayUnion({ guess, correctCount });
 
         if (guess === opponentState.password) {
             transaction.update(duelRef, { [selfKey]: newGuesses, winner: user.name, status: 'finished' });

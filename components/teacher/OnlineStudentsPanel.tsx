@@ -11,7 +11,7 @@ export const OnlineStudentsPanel: React.FC<OnlineStudentsPanelProps> = ({ teache
 
     return (
         <div className="bg-slate-900/70 p-6 rounded-lg">
-            <h2 className="text-xl font-bold text-sky-300 mb-4">Alunos Online</h2>
+            <h2 className="text-xl font-bold text-sky-300 mb-4">Alunos Online ({onlineStudents.length})</h2>
             <div className="space-y-3 max-h-[19.5rem] overflow-y-auto pr-2">
                 {onlineStudents.length > 0 ? onlineStudents.map(student => (
                     <div key={student.name} className="flex items-center gap-3 p-2 bg-slate-700 rounded-lg">
