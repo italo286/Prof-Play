@@ -12,12 +12,14 @@ import { PasswordChallengeManager } from './teacher/PasswordChallengeManager';
 import { CombinationTotalManager } from './teacher/CombinationTotalManager';
 import { ConfirmationModal } from './ConfirmationModal';
 import { EditStudentModal } from './teacher/EditStudentModal';
+import { ClassRankingTable } from './teacher/ClassRankingTable';
 
 export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGames: () => void }> = ({ onReturnToMenu, onAccessGames }) => {
   const { user, logout } = useContext(AuthContext);
   const { 
     getClassesForTeacher, getStudentsInClass, createClass, deleteClass, deleteStudent,
-    onlineStudents: allOnlineStudents, offlineStudents: allOfflineStudents
+    onlineStudents: allOnlineStudents, offlineStudents: allOfflineStudents,
+    updateStudentPassword
   } = useContext(GameDataContext);
 
   const [newClassName, setNewClassName] = useState('');
@@ -35,7 +37,7 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
   const [classToDelete, setClassToDelete] = useState<ClassData | null>(null);
   const [studentToDelete, setStudentToDelete] = useState<UserProfile | null>(null);
   const [studentToEdit, setStudentToEdit] = useState<UserProfile | null>(null);
-  const [classDetailTab, setClassDetailTab] = useState<'alunos' | 'atividade'>('alunos');
+  const [classDetailTab, setClassDetailTab] = useState<'ranking' | 'gerenciar' | 'atividade'>('ranking');
 
   useEffect(() => {
     if (selectedClassCode) {
@@ -48,7 +50,7 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
     } else {
       setStudents([]);
     }
-  }, [selectedClassCode, getStudentsInClass]);
+  }, [selectedClassCode, getStudentsInClass, allOnlineStudents]); // Dependency on allOnlineStudents to refresh on student data changes
   
   const onlineInClass = useMemo(() => allOnlineStudents.filter(s => s.classCode === selectedClassCode), [allOnlineStudents, selectedClassCode]);
   const offlineInClass = useMemo(() => {
@@ -83,6 +85,10 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
     if (studentToDelete) {
         await deleteStudent(studentToDelete.name);
         setStudentToDelete(null);
+        // Refresh student list after deletion
+        if(selectedClassCode) {
+            setStudents(getStudentsInClass(selectedClassCode).sort((a, b) => b.xp - a.xp));
+        }
     }
   };
 
@@ -155,8 +161,11 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
             </header>
             
             <div className="mb-4 border-b border-slate-700 flex">
-                <button onClick={() => setClassDetailTab('alunos')} className={`px-4 py-3 font-semibold text-base transition-colors ${classDetailTab === 'alunos' ? 'text-sky-400 border-b-2 border-sky-400' : 'text-slate-400 hover:text-white'}`}>
-                    <i className="fas fa-users mr-2"></i>Alunos ({students.length})
+                <button onClick={() => setClassDetailTab('ranking')} className={`px-4 py-3 font-semibold text-base transition-colors ${classDetailTab === 'ranking' ? 'text-sky-400 border-b-2 border-sky-400' : 'text-slate-400 hover:text-white'}`}>
+                    <i className="fas fa-trophy mr-2"></i>Ranking da Turma
+                </button>
+                <button onClick={() => setClassDetailTab('gerenciar')} className={`px-4 py-3 font-semibold text-base transition-colors ${classDetailTab === 'gerenciar' ? 'text-sky-400 border-b-2 border-sky-400' : 'text-slate-400 hover:text-white'}`}>
+                    <i className="fas fa-users-cog mr-2"></i>Gerenciar Alunos ({students.length})
                 </button>
                 <button onClick={() => setClassDetailTab('atividade')} className={`px-4 py-3 font-semibold text-base transition-colors ${classDetailTab === 'atividade' ? 'text-sky-400 border-b-2 border-sky-400' : 'text-slate-400 hover:text-white'}`}>
                     <i className="fas fa-signal mr-2"></i>Atividade
@@ -164,10 +173,15 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
             </div>
 
             <main>
-              {classDetailTab === 'alunos' && (
+              {classDetailTab === 'ranking' && (
+                  students.length > 0 
+                    ? <ClassRankingTable students={students} />
+                    : <p className="text-slate-400 text-center mt-8 py-16">Nenhum aluno nesta turma ainda. Compartilhe o código da turma!</p>
+              )}
+              {classDetailTab === 'gerenciar' && (
                   students.length > 0 
                     ? <ClassDetailTable students={students} onViewReport={handleViewStudentReport} onDeleteStudent={setStudentToDelete} onEditStudent={setStudentToEdit} />
-                    : <p className="text-slate-400 text-center mt-8 py-16">Nenhum aluno nesta turma ainda. Compartilhe o código da turma!</p>
+                    : <p className="text-slate-400 text-center mt-8 py-16">Nenhum aluno para gerenciar.</p>
               )}
                {classDetailTab === 'atividade' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
