@@ -40,7 +40,7 @@ interface ClassDetailTableProps {
 
 export const ClassDetailTable: React.FC<ClassDetailTableProps> = ({ students, onViewReport }) => {
     return (
-        <div className="overflow-x-auto relative shadow-md sm:rounded-lg" style={{ maxHeight: 'calc(100vh - 280px)'}}>
+        <div className="overflow-x-auto relative shadow-md sm:rounded-lg" style={{ maxHeight: 'calc(100vh - 240px)'}}>
             <table className="w-full text-sm text-left text-slate-300">
                 <thead className="text-xs text-sky-300 uppercase bg-slate-900/95 backdrop-blur-sm sticky top-0 z-30">
                     <tr>
