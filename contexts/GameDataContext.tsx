@@ -392,7 +392,49 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [activeAdedonhaSession, activeAdedonhaRound]);
 
   const endAdedonhaRoundForScoring = useCallback(async (roundId: string) => {
-    await updateDoc(doc(db, 'adedonhaRounds', roundId), { status: 'scoring' });
+    // 1. Fetch all submissions for the round to perform pre-scoring
+    const submissionsQuery = query(collection(db, 'adedonhaSubmissions'), where('roundId', '==', roundId));
+    const submissionsSnapshot = await getDocs(submissionsQuery);
+    
+    // 2. Normalize answers and count frequencies
+    const answerCounts = new Map<string, number>();
+    const submissions: (AdedonhaSubmission & { docId: string })[] = [];
+
+    submissionsSnapshot.forEach(doc => {
+        const data = doc.data() as AdedonhaSubmission;
+        submissions.push({ ...data, id: doc.id, docId: doc.id });
+        const normalizedAnswer = (data.answer || '').trim().toLowerCase();
+        if (normalizedAnswer) {
+            answerCounts.set(normalizedAnswer, (answerCounts.get(normalizedAnswer) || 0) + 1);
+        }
+    });
+
+    const batch = writeBatch(db);
+
+    // 3. Calculate scores based on uniqueness and update documents
+    submissions.forEach(sub => {
+        const normalizedAnswer = (sub.answer || '').trim().toLowerCase();
+        let score = 0;
+        if (normalizedAnswer) {
+            const count = answerCounts.get(normalizedAnswer) || 0;
+            if (count > 1) {
+                score = 5; // Repeated answer
+            } else if (count === 1) {
+                score = 10; // Unique answer
+            }
+        }
+        
+        const subRef = doc(db, 'adedonhaSubmissions', sub.docId);
+        // Pre-fill the score, which the teacher can later adjust
+        batch.update(subRef, { finalScore: score, rawScore: score });
+    });
+    
+    // 4. Update round status to 'scoring'
+    const roundRef = doc(db, 'adedonhaRounds', roundId);
+    batch.update(roundRef, { status: 'scoring' });
+
+    // 5. Commit all changes atomically
+    await batch.commit();
   }, []);
 
   const updateSubmissionScore = useCallback(async (subId: string, score: number) => {
