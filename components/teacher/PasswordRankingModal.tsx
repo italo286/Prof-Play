@@ -33,7 +33,7 @@ export const PasswordRankingModal: React.FC<{
                 return { name: student.name, avatar: student.avatar, attempts, completionTime };
             })
             // FIX: Updated the type predicate to correctly handle the optional `avatar` property.
-            .filter((s): s is { name: string; avatar?: string; attempts: number; completionTime: Date } => !!s && !!s.completionTime)
+            .filter((s): s is { name: string; avatar: string | undefined; attempts: number; completionTime: Date } => !!s && !!s.completionTime)
             .sort((a, b) => a.completionTime.getTime() - b.completionTime.getTime());
     }, [challenge, getStudentsInClass]);
 

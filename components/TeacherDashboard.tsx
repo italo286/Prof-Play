@@ -4,22 +4,19 @@ import { GameDataContext } from '../contexts/GameDataContext';
 import type { UserProfile, ClassData } from '../types';
 import { ReportModal } from './ReportModal';
 import { ClassReportModal } from './ClassReportModal';
-import { OnlineStudentsPanel } from './teacher/OnlineStudentsPanel';
-import { OfflineStudentsPanel } from './teacher/OfflineStudentsPanel';
 import { ClassDetailTable } from './teacher/ClassDetailTable';
 import { AdedonhaManager } from './teacher/AdedonhaManager';
 import { PasswordChallengeManager } from './teacher/PasswordChallengeManager';
 import { CombinationTotalManager } from './teacher/CombinationTotalManager';
 import { ConfirmationModal } from './ConfirmationModal';
 import { EditStudentModal } from './teacher/EditStudentModal';
-import { ClassRankingTable } from './teacher/ClassRankingTable';
+import { ManageStudentsList } from './teacher/ManageStudentsList';
 
 export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGames: () => void }> = ({ onReturnToMenu, onAccessGames }) => {
   const { user, logout } = useContext(AuthContext);
   const { 
     getClassesForTeacher, getStudentsInClass, createClass, deleteClass, deleteStudent,
-    onlineStudents: allOnlineStudents, offlineStudents: allOfflineStudents,
-    updateStudentPassword
+    onlineStudents: allOnlineStudents
   } = useContext(GameDataContext);
 
   const [newClassName, setNewClassName] = useState('');
@@ -175,12 +172,12 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
             <main>
               {classDetailTab === 'ranking' && (
                   students.length > 0 
-                    ? <ClassRankingTable students={students} />
+                    ? <ClassDetailTable students={students} onViewReport={handleViewStudentReport} />
                     : <p className="text-slate-400 text-center mt-8 py-16">Nenhum aluno nesta turma ainda. Compartilhe o código da turma!</p>
               )}
               {classDetailTab === 'gerenciar' && (
                   students.length > 0 
-                    ? <ClassDetailTable students={students} onViewReport={handleViewStudentReport} onDeleteStudent={setStudentToDelete} onEditStudent={setStudentToEdit} />
+                    ? <ManageStudentsList students={students} onDeleteStudent={setStudentToDelete} onEditStudent={setStudentToEdit} />
                     : <p className="text-slate-400 text-center mt-8 py-16">Nenhum aluno para gerenciar.</p>
               )}
                {classDetailTab === 'atividade' && (
@@ -276,54 +273,48 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
         
         <main className="mt-6">
             {activeTab === 'classes' && (
-                <div className="animate-fade-in grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="bg-slate-900/70 p-6 rounded-lg">
-                            <h2 className="text-xl font-bold text-sky-300 mb-4">Minhas Turmas</h2>
-                            <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
-                                {teacherClasses.length > 0 ? teacherClasses.map(c => (
-                                    <div key={c.classCode} onClick={() => setSelectedClassCode(c.classCode)} className="relative p-4 bg-slate-700 rounded-lg cursor-pointer hover:bg-sky-900/50 border-2 border-transparent hover:border-sky-600 transition-all group">
-                                        <h3 className="font-bold text-lg text-sky-300">{c.className}</h3>
-                                        <p className="text-sm text-slate-400">Código: <span className="font-mono">{c.classCode}</span></p>
-                                        <button 
-                                            onClick={(e) => { e.stopPropagation(); setClassToDelete(c); }} 
-                                            className="absolute top-2 right-2 text-slate-500 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
-                                            aria-label={`Excluir turma ${c.className}`}
-                                        >
-                                            <i className="fas fa-trash-alt"></i>
-                                        </button>
-                                    </div>
-                                )) : (
-                                    <p className="text-slate-400">Você ainda não criou nenhuma turma.</p>
-                                )}
-                            </div>
-                        </div>
-                        <div className="bg-slate-900/70 p-6 rounded-lg">
-                            <h2 className="text-xl font-bold text-sky-300 mb-4">Criar Nova Turma</h2>
-                            <form onSubmit={handleCreateClass} className="space-y-4">
-                                <div>
-                                    <label htmlFor="class-name" className="block text-sm font-medium text-slate-300 mb-1">Nome da Turma</label>
-                                    <input
-                                        id="class-name"
-                                        type="text"
-                                        value={newClassName}
-                                        onChange={(e) => setNewClassName(e.target.value)}
-                                        className="w-full p-2 border border-slate-600 rounded-md bg-slate-700 text-white focus:ring-2 focus:ring-sky-500"
-                                        placeholder="Ex: 6º Ano A - Manhã"
-                                        required
-                                    />
+                <div className="animate-fade-in grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-slate-900/70 p-6 rounded-lg">
+                        <h2 className="text-xl font-bold text-sky-300 mb-4">Minhas Turmas</h2>
+                        <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
+                            {teacherClasses.length > 0 ? teacherClasses.map(c => (
+                                <div key={c.classCode} onClick={() => setSelectedClassCode(c.classCode)} className="relative p-4 bg-slate-700 rounded-lg cursor-pointer hover:bg-sky-900/50 border-2 border-transparent hover:border-sky-600 transition-all group">
+                                    <h3 className="font-bold text-lg text-sky-300">{c.className}</h3>
+                                    <p className="text-sm text-slate-400">Código: <span className="font-mono">{c.classCode}</span></p>
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); setClassToDelete(c); }} 
+                                        className="absolute top-2 right-2 text-slate-500 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                                        aria-label={`Excluir turma ${c.className}`}
+                                    >
+                                        <i className="fas fa-trash-alt"></i>
+                                    </button>
                                 </div>
-                                {error && <p className="text-red-400 text-sm">{error}</p>}
-                                <button type="submit" className="w-full px-4 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-colors">
-                                    Criar Turma
-                                </button>
-                            </form>
+                            )) : (
+                                <p className="text-slate-400">Você ainda não criou nenhuma turma.</p>
+                            )}
                         </div>
                     </div>
-                     <div className="lg:col-span-1 space-y-6">
-                        <OnlineStudentsPanel teacherClasses={teacherClasses}/>
-                        <OfflineStudentsPanel teacherClasses={teacherClasses}/>
-                     </div>
+                    <div className="bg-slate-900/70 p-6 rounded-lg">
+                        <h2 className="text-xl font-bold text-sky-300 mb-4">Criar Nova Turma</h2>
+                        <form onSubmit={handleCreateClass} className="space-y-4">
+                            <div>
+                                <label htmlFor="class-name" className="block text-sm font-medium text-slate-300 mb-1">Nome da Turma</label>
+                                <input
+                                    id="class-name"
+                                    type="text"
+                                    value={newClassName}
+                                    onChange={(e) => setNewClassName(e.target.value)}
+                                    className="w-full p-2 border border-slate-600 rounded-md bg-slate-700 text-white focus:ring-2 focus:ring-sky-500"
+                                    placeholder="Ex: 6º Ano A - Manhã"
+                                    required
+                                />
+                            </div>
+                            {error && <p className="text-red-400 text-sm">{error}</p>}
+                            <button type="submit" className="w-full px-4 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-colors">
+                                Criar Turma
+                            </button>
+                        </form>
+                    </div>
                 </div>
             )}
             {activeTab === 'challenges' && (

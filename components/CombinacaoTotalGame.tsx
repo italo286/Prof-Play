@@ -161,6 +161,7 @@ const GameView: React.FC<{ challenge: CombinacaoTotalChallenge, onBack: () => vo
                 <form onSubmit={handleSubmit} className="space-y-3">
                      <input
                         type="text"
+                        inputMode="numeric"
                         value={attempt}
                         onChange={(e) => setAttempt(e.target.value.replace(/[^0-9]/g, ''))}
                         className="w-full p-4 text-center text-2xl font-mono border-2 border-slate-600 rounded-md bg-slate-700 text-white focus:ring-2 focus:ring-sky-500"
