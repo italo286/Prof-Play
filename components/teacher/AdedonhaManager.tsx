@@ -31,13 +31,11 @@ const CountdownTimer: React.FC<{ startTime: any, duration: number }> = ({ startT
 const AdedonhaSessionView: React.FC<{ session: AdedonhaSession }> = ({ session }) => {
     const { 
         activeAdedonhaRound, adedonhaSubmissions, startAdedonhaRound, updateSubmissionScore, 
-        finalizeRound, endAdedonhaRoundForScoring, endAdedonhaSession, getStudentsInClass,
-        triggerAiValidation 
+        finalizeRound, endAdedonhaRoundForScoring, endAdedonhaSession, getStudentsInClass
     } = useContext(GameDataContext);
     const [theme, setTheme] = useState('');
     const [letter, setLetter] = useState('');
     const [duration, setDuration] = useState(45);
-    const [isAiValidating, setIsAiValidating] = useState(false);
 
     const studentsInClass = useMemo(() => getStudentsInClass(session.classCode), [session.classCode, getStudentsInClass]);
     const avatarMap = useMemo(() => new Map(studentsInClass.map(s => [s.name, s.avatar])), [studentsInClass]);
@@ -67,13 +65,6 @@ const AdedonhaSessionView: React.FC<{ session: AdedonhaSession }> = ({ session }
     const handleRandomLetter = () => {
         const alphabet = 'ABCDEFGHIJKLMNOPRSTUVZ';
         setLetter(alphabet[Math.floor(Math.random() * alphabet.length)]);
-    }
-
-    const handleAiValidation = async () => {
-        if (!activeAdedonhaRound) return;
-        setIsAiValidating(true);
-        await triggerAiValidation(activeAdedonhaRound.id, activeAdedonhaRound.theme, activeAdedonhaRound.letter);
-        setIsAiValidating(false);
     }
     
     const renderGameControl = () => {
@@ -115,15 +106,10 @@ const AdedonhaSessionView: React.FC<{ session: AdedonhaSession }> = ({ session }
             );
         }
         if (activeAdedonhaRound.status === 'scoring') {
-            const notValidated = adedonhaSubmissions.some(sub => sub.isValid === null);
             return (
                 <div className="bg-slate-700 p-6 rounded-lg shadow-inner">
                     <div className="flex justify-between items-center mb-2">
                         <h3 className="text-lg font-bold text-cyan-300">Avaliar Respostas</h3>
-                        <button onClick={handleAiValidation} disabled={isAiValidating || !notValidated} className="px-3 py-1 bg-indigo-600 text-white text-sm font-semibold rounded disabled:bg-slate-500 disabled:cursor-wait">
-                            <i className={`fas ${isAiValidating ? 'fa-spinner fa-spin' : 'fa-magic'} mr-2`}></i>
-                            {isAiValidating ? 'Validando...' : 'Validar com IA'}
-                        </button>
                     </div>
                     <div className="space-y-2 max-h-80 overflow-y-auto pr-2">
                         {adedonhaSubmissions.map(sub => {
