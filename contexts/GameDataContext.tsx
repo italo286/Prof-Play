@@ -78,7 +78,6 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const unsubscribes = [
       onSnapshot(collection(db, 'users'), snapshot => {
           const data: UserProfile[] = [];
-          // FIX: Use snapshot.forEach to iterate over docs to fix type error.
           snapshot.forEach(doc => data.push(doc.data() as UserProfile));
           setAllUsers(data);
       }),
@@ -129,10 +128,8 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (!activeAdedonhaSession) { setActiveAdedonhaRound(null); return; }
     const roundQuery = query(collection(db, 'adedonhaRounds'), where('sessionId', '==', activeAdedonhaSession.id));
     const roundUnsub = onSnapshot(roundQuery, snapshot => {
-        // FIX: Use snapshot.size instead of snapshot.empty to check for documents.
         if (snapshot.size > 0) {
             const rounds: AdedonhaRound[] = [];
-            // FIX: Use snapshot.forEach to iterate over docs to fix type error.
             snapshot.forEach(doc => rounds.push({ id: doc.id, ...doc.data() } as AdedonhaRound));
             rounds.sort((a, b) => b.roundNumber - a.roundNumber);
             setActiveAdedonhaRound(rounds[0]);
@@ -486,7 +483,6 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [user, adedonhaSubmissions, activeAdedonhaSession]);
   
-  // FIX: Use explicit key-value pairs to avoid shorthand property errors.
   const value: GameDataContextType = {
     allUsers: allUsers,
     classes: classes,
@@ -525,6 +521,5 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     submitAdedonhaAnswer: submitAdedonhaAnswer,
   };
 
-  // FIX: Added missing return statement for the component.
   return <GameDataContext.Provider value={value}>{children}</GameDataContext.Provider>;
 };
