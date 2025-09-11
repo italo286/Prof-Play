@@ -13,10 +13,6 @@ const CountdownTimer: React.FC<{ startTime: any, duration: number }> = ({ startT
     const [timeLeft, setTimeLeft] = useState(duration);
 
     useEffect(() => {
-        setTimeLeft(duration);
-    }, [duration]);
-
-    useEffect(() => {
         const serverStartTime = getJsDateFromTimestamp(startTime)?.getTime();
         if (!serverStartTime) return;
         const interval = setInterval(() => {
@@ -131,7 +127,7 @@ const AdedonhaSessionView: React.FC<{ session: AdedonhaSession, onEnd: (session:
              return (
                 <div className="text-center bg-slate-700 p-6 rounded-lg shadow-inner">
                     <h3 className="text-lg font-bold text-cyan-300 mb-2">Rodada em Andamento</h3>
-                    <CountdownTimer startTime={activeAdedonhaRound.startTime} duration={activeAdedonhaRound.duration} />
+                    <CountdownTimer key={activeAdedonhaRound.id} startTime={activeAdedonhaRound.startTime} duration={activeAdedonhaRound.duration} />
                     <p>Tema: <span className="font-bold">{activeAdedonhaRound.theme}</span> | Letra: <span className="font-bold">{activeAdedonhaRound.letter}</span></p>
                     <div className="mt-4">
                         <h4 className="text-sm font-bold text-slate-300 mb-2">Submissões ({adedonhaSubmissions.length}/{studentsInClass.length})</h4>

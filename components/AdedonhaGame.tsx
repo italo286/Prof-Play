@@ -14,10 +14,6 @@ const CountdownTimer: React.FC<{ startTime: any, duration: number }> = ({ startT
     const [timeLeft, setTimeLeft] = useState(duration);
 
     useEffect(() => {
-        setTimeLeft(duration);
-    }, [duration]);
-
-    useEffect(() => {
         const serverStartTime = getJsDateFromTimestamp(startTime)?.getTime();
         if (!serverStartTime) return;
 
@@ -165,7 +161,7 @@ export const AdedonhaGame: React.FC<{ onReturnToMenu: () => void }> = ({ onRetur
         return (
             <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-slate-200">
                 <div className="relative bg-slate-800 shadow-2xl rounded-xl p-8 w-full max-w-md text-center">
-                    {letterRevealed && <CountdownTimer startTime={activeAdedonhaRound.startTime} duration={activeAdedonhaRound.duration} />}
+                    {letterRevealed && <CountdownTimer key={activeAdedonhaRound.id} startTime={activeAdedonhaRound.startTime} duration={activeAdedonhaRound.duration} />}
                     <div className="my-4">
                         <p className="text-slate-400 text-lg">Tema:</p>
                         <p className="text-2xl font-bold text-sky-300">{activeAdedonhaRound.theme}</p>
