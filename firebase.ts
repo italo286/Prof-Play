@@ -30,12 +30,13 @@ import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
 //    }
 //
 const firebaseConfig = {
-  apiKey: "AIzaSyBIxBC7ogp38lAEMvKKYO4S92fbBud9zSw",
-  authDomain: "oficial5-0.firebaseapp.com",
-  projectId: "oficial5-0",
-  storageBucket: "oficial5-0.firebasestorage.app",
-  messagingSenderId: "1025175183650",
-  appId: "1:1025175183650:web:f236fd89dd454d2831457b"
+  apiKey: "AIzaSyAyDyqJNBoWIDrmL89PaQ3Ge-vYBobcrhM",
+  authDomain: "desafio-no-plano-cartesiano-2.firebaseapp.com",
+  databaseURL: "https://desafio-no-plano-cartesiano-2-default-rtdb.firebaseio.com",
+  projectId: "desafio-no-plano-cartesiano-2",
+  storageBucket: "desafio-no-plano-cartesiano-2.firebasestorage.app",
+  messagingSenderId: "153071609788",
+  appId: "1:153071609788:web:21e5159ccbf50d5066edb9"
 };
 
 
