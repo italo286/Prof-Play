@@ -141,8 +141,8 @@ export interface AdedonhaSubmission {
   roundId: string;
   studentName: string;
   answer: string;
-  rawScore: number;
   finalScore: number;
+  isValid: boolean | null; // null: not validated, true: valid, false: invalid
 }
 
 export interface AdedonhaRound {

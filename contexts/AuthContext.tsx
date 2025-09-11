@@ -1,7 +1,8 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { db } from '../firebase';
 import type { UserProfile } from '../types';
-import firebase from 'firebase/compat/app';
+// FIX: Corrected Firebase Firestore imports for v9+ modular SDK.
+import { doc, getDoc, setDoc, collection, onSnapshot, query, where, deleteDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 
 const CURRENT_USER_STORAGE_KEY = 'prof-play-currentUser';
 
@@ -39,14 +40,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     setLoading(true);
-    const unsubscribe = db.collection('users').onSnapshot((snapshot) => {
-        const profiles = snapshot.docs.map(d => ({ ...d.data() } as UserProfile));
+    const usersCollection = collection(db, 'users');
+    const unsubscribe = onSnapshot(usersCollection, (snapshot) => {
+        const profiles: UserProfile[] = [];
+        snapshot.forEach(doc => profiles.push(doc.data() as UserProfile));
 
         const storedUserName = sessionStorage.getItem(CURRENT_USER_STORAGE_KEY);
         if (storedUserName) {
             const userProfile = profiles.find(p => p.name === storedUserName);
             if (userProfile) {
-                db.collection('presence').doc(userProfile.name).set({ lastSeen: firebase.firestore.FieldValue.serverTimestamp() });
+                const presenceRef = doc(db, 'presence', userProfile.name);
+                setDoc(presenceRef, { lastSeen: serverTimestamp() });
                 setUser(userProfile);
             } else {
                 sessionStorage.removeItem(CURRENT_USER_STORAGE_KEY);
@@ -64,8 +68,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user) return;
 
     const heartbeatInterval = setInterval(() => {
-        db.collection('presence').doc(user.name).set({
-            lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+        const presenceRef = doc(db, 'presence', user.name);
+        setDoc(presenceRef, {
+            lastSeen: serverTimestamp()
         });
     }, 60000); // Update every 60 seconds
 
@@ -76,7 +81,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const handleBeforeUnload = () => {
         if (user) {
-            db.collection('presence').doc(user.name).delete();
+            const presenceRef = doc(db, 'presence', user.name);
+            deleteDoc(presenceRef);
         }
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
@@ -86,31 +92,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user]);
 
   const login = useCallback(async (name: string, pass: string) => {
-    const userDocRef = db.collection("users").doc(name);
-    const userDoc = await userDocRef.get();
+    const userDocRef = doc(db, "users", name);
+    const userDoc = await getDoc(userDocRef);
 
-    if (!userDoc.exists) return 'not_found';
+    if (!userDoc.exists()) return 'not_found';
     
     const profile = userDoc.data() as UserProfile;
     if (profile.password !== pass) return 'wrong_pass';
 
-    await db.collection('presence').doc(name).set({ lastSeen: firebase.firestore.FieldValue.serverTimestamp() });
+    const presenceRef = doc(db, 'presence', name);
+    await setDoc(presenceRef, { lastSeen: serverTimestamp() });
     setUser(profile);
     sessionStorage.setItem(CURRENT_USER_STORAGE_KEY, name);
     return 'success';
   }, []);
   
   const register = useCallback(async (name: string, pass: string, role: 'student' | 'teacher', classCode?: string, avatar?: string): Promise<{ status: 'success' | 'user_exists' | 'class_not_found' | 'invalid_role' | 'avatar_taken', message?: string }> => {
-    const userDocRef = db.collection("users").doc(name);
-    const userDoc = await userDocRef.get();
-    if (userDoc.exists) {
+    const userDocRef = doc(db, "users", name);
+    const userDoc = await getDoc(userDocRef);
+    if (userDoc.exists()) {
       return { status: 'user_exists', message: 'Este nome de usuário já existe.' };
     }
     
     if (role === 'student') {
       if (!classCode) return { status: 'class_not_found', message: 'Código da turma é obrigatório.'}
-      const q = db.collection("classes").where("classCode", "==", classCode.toUpperCase());
-      const classDocs = await q.get();
+      const q = query(collection(db, "classes"), where("classCode", "==", classCode.toUpperCase()));
+      const classDocs = await getDocs(q);
       if (classDocs.empty) {
         return { status: 'class_not_found', message: 'Código da turma inválido ou não encontrado.' };
       }
@@ -118,7 +125,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return { status: 'invalid_role', message: 'É necessário escolher um avatar.'};
       }
       
-      const studentsInClassSnapshot = await db.collection("users").where("classCode", "==", classCode.toUpperCase()).get();
+      const studentsInClassQuery = query(collection(db, "users"), where("classCode", "==", classCode.toUpperCase()));
+      const studentsInClassSnapshot = await getDocs(studentsInClassQuery);
       const studentsInClass = studentsInClassSnapshot.docs.map(d => d.data() as UserProfile);
 
       if (studentsInClass.some(s => s.avatar === avatar)) {
@@ -127,9 +135,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     
     const newProfile = createNewProfile(name, pass, role, classCode, avatar);
-    await userDocRef.set(newProfile);
+    await setDoc(userDocRef, newProfile);
     
-    await db.collection('presence').doc(name).set({ lastSeen: firebase.firestore.FieldValue.serverTimestamp() });
+    const presenceRef = doc(db, 'presence', name);
+    await setDoc(presenceRef, { lastSeen: serverTimestamp() });
     setUser(newProfile);
     sessionStorage.setItem(CURRENT_USER_STORAGE_KEY, name);
     return { status: 'success' };
@@ -137,7 +146,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = useCallback(async () => {
       if (user) {
-          await db.collection('presence').doc(user.name).delete();
+          const presenceRef = doc(db, 'presence', user.name);
+          await deleteDoc(presenceRef);
       }
       sessionStorage.removeItem(CURRENT_USER_STORAGE_KEY);
       setUser(null);

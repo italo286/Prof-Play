@@ -1,9 +1,10 @@
 import React, { createContext, useState, useEffect, useCallback, useContext } from 'react';
 import { db } from '../firebase';
-import type { UserProfile, Badge, NotificationItem, GameStat, CombinacaoTotalStat } from '../types';
+import type { UserProfile, Badge, NotificationItem, GameStat, CombinacaoTotalStat, CombinacaoTotalChallenge } from '../types';
 import { ALL_BADGES_MAP } from '../data/achievements';
 import { AuthContext } from './AuthContext';
-import firebase from 'firebase/compat/app';
+// FIX: Corrected Firebase Firestore imports for v9+ modular SDK.
+import { doc, updateDoc, serverTimestamp, runTransaction, getDoc } from 'firebase/firestore';
 
 // --- Leveling Logic ---
 const BASE_XP = 100;
@@ -61,7 +62,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
   
   const addXp = useCallback(async (amount: number) => {
     if (!user) return;
-    const userRef = db.collection('users').doc(user.name);
+    const userRef = doc(db, 'users', user.name);
 
     const newXp = user.xp + amount;
     let newLevel = user.level;
@@ -88,7 +89,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       });
     }
     
-    await userRef.update({ xp: newXp, level: newLevel, badges: newBadges });
+    await updateDoc(userRef, { xp: newXp, level: newLevel, badges: newBadges });
 
   }, [addNotification, checkAndAwardLevelBadges, user]);
 
@@ -111,8 +112,8 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
     
     if(!user.badges.includes(badgeId)) updatedBadges.push(badgeId);
 
-    const userRef = db.collection('users').doc(user.name);
-    await userRef.update({ badges: updatedBadges });
+    const userRef = doc(db, 'users', user.name);
+    await updateDoc(userRef, { badges: updatedBadges });
     
     addNotification({ type: 'badge', payload: badgeInfo });
 
@@ -120,7 +121,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const logAttempt = useCallback(async (gameId: string, success: boolean, firstTry: boolean) => {
       if (!user) return;
-      const userRef = db.collection('users').doc(user.name);
+      const userRef = doc(db, 'users', user.name);
       
       const gameStats = user.gameStats || {};
       const currentStats: GameStat = gameStats[gameId] || { successFirstTry: 0, successOther: 0, errors: 0 };
@@ -130,33 +131,32 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
           else currentStats.successOther++;
 
           if (gameId.startsWith('password_unlock_') && currentStats.successFirstTry + currentStats.successOther === 1) {
-              currentStats.completionTimestamp = firebase.firestore.FieldValue.serverTimestamp();
+              currentStats.completionTimestamp = serverTimestamp();
           }
 
       } else {
           currentStats.errors++;
       }
       
-      await userRef.update({
+      await updateDoc(userRef, {
         [`gameStats.${gameId}`]: currentStats
       });
   }, [user]);
 
   const logCombinacaoTotalAttempt = useCallback(async (challengeId: string, combination: string) => {
     if (!user) return;
-    const userRef = db.collection('users').doc(user.name);
-    // This function needs access to the challenge definitions to check for completion.
-    // This is a case where GameDataContext might be needed, or the totalCombinations passed in.
-    // For now, let's assume we can fetch it or it's passed.
-    const challengeDoc = await db.collection('combinacao_total_challenges').doc(challengeId).get();
-    if (!challengeDoc.exists) return;
-    const challenge = challengeDoc.data();
-    if (!challenge) return;
-
+    const userRef = doc(db, 'users', user.name);
+    const challengeDocRef = doc(db, 'combinacao_total_challenges', challengeId);
+    
     try {
-        await db.runTransaction(async (transaction) => {
+        const challengeDoc = await getDoc(challengeDocRef);
+        if (!challengeDoc.exists()) return;
+        const challenge = challengeDoc.data() as CombinacaoTotalChallenge;
+        if (!challenge) return;
+
+        await runTransaction(db, async (transaction) => {
             const userDoc = await transaction.get(userRef);
-            if (!userDoc.exists) return;
+            if (!userDoc.exists()) return;
 
             const profile = userDoc.data() as UserProfile;
             const existingStats = profile.combinacaoTotalStats || [];
@@ -166,10 +166,10 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
             if (statIndex > -1) {
                 const oldStat = existingStats[statIndex];
                 if (oldStat.foundCombinations.includes(combination)) return;
-                const updatedStat = { ...oldStat, foundCombinations: [...oldStat.foundCombinations, combination] };
+                const updatedStat = { ...oldStat, foundCombinations: [...oldStat.foundCombinations, combination].sort() };
                 if (updatedStat.foundCombinations.length >= challenge.totalCombinations) {
                     updatedStat.isComplete = true;
-                    if (!updatedStat.completionTimestamp) updatedStat.completionTimestamp = new Date();
+                    if (!updatedStat.completionTimestamp) updatedStat.completionTimestamp = serverTimestamp();
                 }
                 newStats = [...existingStats];
                 newStats[statIndex] = updatedStat;
@@ -177,7 +177,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
                 const newStat: CombinacaoTotalStat = { challengeId, foundCombinations: [combination], isComplete: false };
                 if (newStat.foundCombinations.length >= challenge.totalCombinations) {
                     newStat.isComplete = true;
-                    newStat.completionTimestamp = new Date();
+                    newStat.completionTimestamp = serverTimestamp();
                 }
                 newStats = [...existingStats, newStat];
             }
@@ -190,8 +190,8 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const updateUserProfile = useCallback(async (data: Partial<UserProfile>) => {
     if (!user) return;
-    const userRef = db.collection('users').doc(user.name);
-    await userRef.update(data);
+    const userRef = doc(db, 'users', user.name);
+    await updateDoc(userRef, data);
   }, [user]);
 
   return (
