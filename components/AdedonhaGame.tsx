@@ -41,31 +41,17 @@ const CountdownTimer: React.FC<{ startTime: any, duration: number }> = ({ startT
 };
 
 const LetterSpinner: React.FC<{ letter: string, onRevealed: () => void }> = ({ letter, onRevealed }) => {
-    const alphabet = 'ABCDEFGHIJKLMNOPRSTUVZ';
-    const [spinning, setSpinning] = useState(true);
-    const [displayedLetter, setDisplayedLetter] = useState('?');
-
+    // A animação de "spin" foi removida a pedido do usuário.
+    // A letra agora é revelada imediatamente.
     useEffect(() => {
-        let spinCount = 0;
-        const interval = setInterval(() => {
-            setDisplayedLetter(alphabet[Math.floor(Math.random() * alphabet.length)]);
-            spinCount++;
-            if (spinCount > 15) {
-                clearInterval(interval);
-                setDisplayedLetter(letter);
-                setSpinning(false);
-                onRevealed();
-            }
-        }, 100);
-
-        return () => clearInterval(interval);
-    }, [letter, onRevealed]);
+        onRevealed();
+    }, [onRevealed]);
 
     return (
         <div className="flex flex-col items-center justify-center my-4">
             <p className="text-slate-400 text-lg">A letra é...</p>
-            <div className={`text-8xl font-bold transition-colors duration-500 ${spinning ? 'text-sky-400' : 'text-amber-400'}`}>
-                {displayedLetter}
+            <div className="text-8xl font-bold text-amber-400 animate-fade-in-down">
+                {letter}
             </div>
         </div>
     );
