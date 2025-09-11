@@ -1,6 +1,4 @@
-// FIX: The error "Module '"firebase/app"' has no exported member 'initializeApp'" suggests that for this project's
-// Firebase version, initializeApp is exported from the root 'firebase' package instead of 'firebase/app'.
-import { initializeApp } from "firebase";
+import { initializeApp } from "firebase/app";
 import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
 
 // --- CONFIGURAÇÃO DO FIREBASE ---
