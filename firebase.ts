@@ -1,4 +1,4 @@
-import firebase from "firebase/compat/app";
+import { initializeApp } from "firebase/app";
 import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
 
 // --- CONFIGURAÇÃO DO FIREBASE ---
@@ -38,8 +38,7 @@ const firebaseConfig = {
 
 
 // Inicializa o Firebase
-// FIX: Use compat library for initialization to solve module resolution issue.
-const app = firebase.initializeApp(firebaseConfig);
+const app = initializeApp(firebaseConfig);
 
 // Exporta a instância do Firestore para ser usada em outros lugares no aplicativo
 export const db = getFirestore(app);
