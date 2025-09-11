@@ -105,7 +105,6 @@ const GuessInput: React.FC<{ digitCount: number, onGuess: (guess: string) => voi
                         key={index}
                         ref={el => { inputsRef.current[index] = el }}
                         type="text"
-                        inputMode="numeric"
                         pattern="\d*"
                         maxLength={1}
                         value={values[index]}

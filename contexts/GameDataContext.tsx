@@ -1,10 +1,6 @@
 import React, { createContext, useState, useEffect, useCallback, useContext, useMemo } from 'react';
 import { db } from '../firebase';
-// FIX: Corrected and consolidated Firebase Firestore imports for v9+ modular SDK.
-import { 
-    collection, onSnapshot, query, where, orderBy, doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, 
-    writeBatch, serverTimestamp, arrayUnion, arrayRemove, deleteField, runTransaction, getDocs
-} from 'firebase/firestore';
+import firebase from 'firebase/compat/app';
 import type { UserProfile, ClassData, PasswordChallenge, AdedonhaSession, AdedonhaRound, AdedonhaSubmission, CombinacaoTotalChallenge } from '../types';
 import { AuthContext } from './AuthContext';
 
@@ -30,9 +26,6 @@ interface GameDataContextType {
 
   // Teacher Actions
   createClass: (className: string) => Promise<{ status: 'success' | 'error' | 'duplicate_name'; classCode?: string; message?: string }>;
-  deleteClass: (classCode: string) => Promise<void>;
-  deleteStudent: (studentName: string) => Promise<void>;
-  updateStudentPassword: (studentName: string, newPassword: string) => Promise<{ status: 'success' | 'error', message?: string }>;
   createPasswordChallenge: (challengeData: Omit<PasswordChallenge, 'id' | 'creatorName' | 'status' | 'unlockedTimestamp'>) => Promise<{ status: 'success' | 'error', message?: string }>;
   updatePasswordChallenge: (challengeId: string, challengeData: Partial<Omit<PasswordChallenge, 'id' | 'creatorName'>>) => Promise<{ status: 'success' | 'error', message?: string }>;
   deletePasswordChallenge: (challengeId: string) => Promise<void>;
@@ -75,29 +68,13 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   useEffect(() => {
     const unsubscribes = [
-      onSnapshot(collection(db, 'users'), snapshot => {
-          const data: UserProfile[] = [];
-          snapshot.forEach(doc => data.push(doc.data() as UserProfile));
-          setAllUsers(data);
-      }),
-      onSnapshot(collection(db, 'classes'), snapshot => {
-          const data: ClassData[] = [];
-          snapshot.forEach(doc => data.push(doc.data() as ClassData));
-          setClasses(data);
-      }),
-      onSnapshot(query(collection(db, 'password_challenges'), orderBy('title')), snapshot => {
-          const data: PasswordChallenge[] = [];
-          snapshot.forEach(doc => data.push({ id: doc.id, ...doc.data() } as PasswordChallenge));
-          setPasswordChallenges(data);
-      }),
-      onSnapshot(query(collection(db, 'combinacao_total_challenges'), orderBy('createdAt', 'desc')), snapshot => {
-          const data: CombinacaoTotalChallenge[] = [];
-          snapshot.forEach(doc => data.push({ id: doc.id, ...doc.data() } as CombinacaoTotalChallenge));
-          setCombinacaoTotalChallenges(data);
-      }),
-      onSnapshot(collection(db, 'presence'), snapshot => {
+      db.collection('users').onSnapshot(snapshot => setAllUsers(snapshot.docs.map(d => d.data() as UserProfile))),
+      db.collection('classes').onSnapshot(snapshot => setClasses(snapshot.docs.map(d => d.data() as ClassData))),
+      db.collection('password_challenges').orderBy('title').onSnapshot(snapshot => setPasswordChallenges(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as PasswordChallenge)))),
+      db.collection('combinacao_total_challenges').orderBy('createdAt', 'desc').onSnapshot(snapshot => setCombinacaoTotalChallenges(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as CombinacaoTotalChallenge)))),
+      db.collection('presence').onSnapshot(snapshot => {
         const data = new Map<string, { lastSeen: any }>();
-        snapshot.forEach(doc => {
+        snapshot.docs.forEach(doc => {
             data.set(doc.id, doc.data() as { lastSeen: any });
         });
         setPresenceData(data);
@@ -109,15 +86,13 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Adedonha Listeners
   useEffect(() => {
     if (!user) { setActiveAdedonhaSession(null); return; }
-    let sessionQuery;
-    if (user.role === 'teacher') sessionQuery = query(collection(db, 'adedonhaSessions'), where('teacherName', '==', user.name));
-    else if (user.classCode) sessionQuery = query(collection(db, 'adedonhaSessions'), where('classCode', '==', user.classCode));
+    let query;
+    if (user.role === 'teacher') query = db.collection('adedonhaSessions').where('teacherName', '==', user.name);
+    else if (user.classCode) query = db.collection('adedonhaSessions').where('classCode', '==', user.classCode);
     else return;
 
-    const sessionUnsub = onSnapshot(sessionQuery, snapshot => {
-        const sessions: AdedonhaSession[] = [];
-        snapshot.forEach(doc => sessions.push({ id: doc.id, ...doc.data() } as AdedonhaSession));
-        const activeSession = sessions.find(session => session.status === 'active');
+    const sessionUnsub = query.onSnapshot(snapshot => {
+        const activeSession = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AdedonhaSession)).find(session => session.status === 'active');
         setActiveAdedonhaSession(activeSession || null);
     });
     return () => sessionUnsub();
@@ -125,11 +100,9 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   useEffect(() => {
     if (!activeAdedonhaSession) { setActiveAdedonhaRound(null); return; }
-    const roundQuery = query(collection(db, 'adedonhaRounds'), where('sessionId', '==', activeAdedonhaSession.id));
-    const roundUnsub = onSnapshot(roundQuery, snapshot => {
-        if (snapshot.size > 0) {
-            const rounds: AdedonhaRound[] = [];
-            snapshot.forEach(doc => rounds.push({ id: doc.id, ...doc.data() } as AdedonhaRound));
+    const roundUnsub = db.collection('adedonhaRounds').where('sessionId', '==', activeAdedonhaSession.id).onSnapshot(snapshot => {
+        if (!snapshot.empty) {
+            const rounds = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AdedonhaRound));
             rounds.sort((a, b) => b.roundNumber - a.roundNumber);
             setActiveAdedonhaRound(rounds[0]);
         } else {
@@ -141,11 +114,8 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   
    useEffect(() => {
     if (!activeAdedonhaRound) { setAdedonhaSubmissions([]); return; }
-    const submissionsQuery = query(collection(db, 'adedonhaSubmissions'), where('roundId', '==', activeAdedonhaRound.id));
-    const submissionsUnsub = onSnapshot(submissionsQuery, snapshot => {
-        const submissions: AdedonhaSubmission[] = [];
-        snapshot.forEach(doc => submissions.push({ id: doc.id, ...doc.data() } as AdedonhaSubmission));
-        setAdedonhaSubmissions(submissions);
+    const submissionsUnsub = db.collection('adedonhaSubmissions').where('roundId', '==', activeAdedonhaRound.id).onSnapshot(snapshot => {
+        setAdedonhaSubmissions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AdedonhaSubmission)));
     });
     return () => submissionsUnsub();
   }, [activeAdedonhaRound]);
@@ -204,8 +174,8 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     let isUnique = false;
     while (!isUnique) {
         newClassCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-        const existingClass = await getDoc(doc(db, 'classes', newClassCode)); // Simplified check
-        if (!existingClass.exists()) {
+        const existingClass = await db.collection('classes').where('classCode', '==', newClassCode).get();
+        if (existingClass.empty) {
             isUnique = true;
         }
     }
@@ -216,61 +186,13 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         teacherName: user.name,
     };
     
-    await setDoc(doc(db, 'classes', newClassCode), newClass);
-    await updateDoc(doc(db, 'users', user.name), {
-      classes: arrayUnion(newClassCode)
+    await db.collection('classes').doc(newClassCode).set(newClass);
+    await db.collection('users').doc(user.name).update({
+      classes: firebase.firestore.FieldValue.arrayUnion(newClassCode)
     });
     
     return { status: 'success', classCode: newClassCode };
   }, [user, classes]);
-
-  const deleteClass = useCallback(async (classCode: string) => {
-    if (!user || user.role !== 'teacher') return;
-    const batch = writeBatch(db);
-    
-    // 1. Unlink students
-    const studentsInClass = getStudentsInClass(classCode);
-    studentsInClass.forEach(student => {
-        const studentRef = doc(db, 'users', student.name);
-        batch.update(studentRef, { classCode: deleteField() });
-    });
-    
-    // 2. Remove class from teacher's list
-    const teacherRef = doc(db, 'users', user.name);
-    batch.update(teacherRef, { classes: arrayRemove(classCode) });
-
-    // 3. Delete class document
-    const classRef = doc(db, 'classes', classCode);
-    batch.delete(classRef);
-
-    await batch.commit();
-  }, [user, getStudentsInClass]);
-  
-  const deleteStudent = useCallback(async (studentName: string) => {
-    if (!user || user.role !== 'teacher') return;
-    const batch = writeBatch(db);
-    const studentRef = doc(db, 'users', studentName);
-    const presenceRef = doc(db, 'presence', studentName);
-
-    batch.delete(studentRef);
-    batch.delete(presenceRef);
-    
-    await batch.commit();
-  }, [user]);
-
-  const updateStudentPassword = useCallback(async (studentName: string, newPassword: string): Promise<{ status: 'success' | 'error', message?: string }> => {
-    if (!user || user.role !== 'teacher') return { status: 'error', message: 'Ação não permitida.' };
-    if (!newPassword || newPassword.length < 4) return { status: 'error', message: 'A senha deve ter pelo menos 4 caracteres.' };
-
-    const studentRef = doc(db, 'users', studentName);
-    try {
-        await updateDoc(studentRef, { password: newPassword });
-        return { status: 'success' };
-    } catch (e) {
-        console.error("Error updating password:", e);
-        return { status: 'error', message: 'Falha ao atualizar a senha no banco de dados.' };
-    }
-  }, [user]);
 
   const createPasswordChallenge = useCallback(async (challengeData: any): Promise<{ status: 'success' | 'error', message?: string }> => {
     if (!user || user.role !== 'teacher') return { status: 'error', message: 'Apenas professores podem criar desafios.' };
@@ -279,29 +201,29 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         creatorName: user.name,
         status: 'locked',
     };
-    await addDoc(collection(db, 'password_challenges'), newChallenge);
+    await db.collection('password_challenges').add(newChallenge);
     return { status: 'success' };
   }, [user]);
 
   const updatePasswordChallenge = useCallback(async (id: string, data: any): Promise<{ status: 'success' | 'error', message?: string }> => {
     if (!user || user.role !== 'teacher') return { status: 'error', message: 'Ação não permitida.' };
-    await updateDoc(doc(db, 'password_challenges', id), data);
+    await db.collection('password_challenges').doc(id).update(data);
     return { status: 'success' };
   }, [user]);
 
   const deletePasswordChallenge = useCallback(async (id: string) => {
-    await deleteDoc(doc(db, 'password_challenges', id));
+    await db.collection('password_challenges').doc(id).delete();
   }, []);
 
   const unlockPasswordChallenge = useCallback(async (id: string) => {
-    await updateDoc(doc(db, 'password_challenges', id), {
+    await db.collection('password_challenges').doc(id).update({
         status: 'unlocked',
-        unlockedTimestamp: serverTimestamp()
+        unlockedTimestamp: firebase.firestore.FieldValue.serverTimestamp()
     });
   }, []);
   
   const lockPasswordChallenge = useCallback(async (id: string) => {
-    await updateDoc(doc(db, 'password_challenges', id), {
+    await db.collection('password_challenges').doc(id).update({
         status: 'locked'
     });
   }, []);
@@ -311,11 +233,11 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (!challenge) return;
     const students = getStudentsInClass(challenge.classCode);
     const gameId = `${GAME_ID_PASSWORD}_${id}`;
-    const batch = writeBatch(db);
+    const batch = db.batch();
     students.forEach(student => {
         if (student.gameStats?.[gameId]) {
-            const userRef = doc(db, 'users', student.name);
-            batch.update(userRef, { [`gameStats.${gameId}`]: deleteField() });
+            const userRef = db.collection('users').doc(student.name);
+            batch.update(userRef, { [`gameStats.${gameId}`]: firebase.firestore.FieldValue.delete() });
         }
     });
     await batch.commit();
@@ -323,33 +245,33 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const createCombinacaoTotalChallenge = useCallback(async (data: any): Promise<{ status: 'success' | 'error', message?: string }> => {
     if (!user || user.role !== 'teacher') return { status: 'error', message: 'Apenas professores podem criar desafios.' };
-    const newChallenge = { ...data, creatorName: user.name, status: 'locked', createdAt: serverTimestamp() };
-    await addDoc(collection(db, 'combinacao_total_challenges'), newChallenge);
+    const newChallenge = { ...data, creatorName: user.name, status: 'locked', createdAt: firebase.firestore.FieldValue.serverTimestamp() };
+    await db.collection('combinacao_total_challenges').add(newChallenge);
     return { status: 'success' };
   }, [user]);
 
   const deleteCombinacaoTotalChallenge = useCallback(async (id: string) => {
-    await deleteDoc(doc(db, 'combinacao_total_challenges', id));
+    await db.collection('combinacao_total_challenges').doc(id).delete();
   }, []);
 
   const unlockCombinacaoTotalChallenge = useCallback(async (id: string) => {
-     await updateDoc(doc(db, 'combinacao_total_challenges', id), {
+     await db.collection('combinacao_total_challenges').doc(id).update({
         status: 'unlocked',
-        unlockedTimestamp: serverTimestamp()
+        unlockedTimestamp: firebase.firestore.FieldValue.serverTimestamp()
     });
   }, []);
   
   const lockCombinacaoTotalChallenge = useCallback(async (id: string) => {
-    await updateDoc(doc(db, 'combinacao_total_challenges', id), { status: 'locked' });
+    await db.collection('combinacao_total_challenges').doc(id).update({ status: 'locked' });
   }, []);
   
   const clearCombinacaoTotalRanking = useCallback(async (id: string) => {
     const challenge = combinacaoTotalChallenges.find(c => c.id === id);
     if (!challenge) return;
     const students = getStudentsInClass(challenge.classCode);
-    const batch = writeBatch(db);
+    const batch = db.batch();
     students.forEach(student => {
-        const userRef = doc(db, 'users', student.name);
+        const userRef = db.collection('users').doc(student.name);
         batch.update(userRef, { 
             combinacaoTotalStats: student.combinacaoTotalStats?.filter(s => s.challengeId !== id) || []
         });
@@ -370,10 +292,10 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         classCode,
         teacherName: user.name,
         status: 'active',
-        createdAt: serverTimestamp(),
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         scores: initialScores,
     };
-    const docRef = await addDoc(collection(db, 'adedonhaSessions'), newSession);
+    const docRef = await db.collection('adedonhaSessions').add(newSession);
     return docRef.id;
   }, [user, getStudentsInClass]);
 
@@ -383,108 +305,64 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const newRound = {
         sessionId, roundNumber: newRoundNumber, theme, letter, duration,
         status: 'playing',
-        startTime: serverTimestamp(),
+        startTime: firebase.firestore.FieldValue.serverTimestamp(),
     };
-    await addDoc(collection(db, 'adedonhaRounds'), newRound);
+    await db.collection('adedonhaRounds').add(newRound);
   }, [activeAdedonhaSession, activeAdedonhaRound]);
 
   const endAdedonhaRoundForScoring = useCallback(async (roundId: string) => {
-    const roundRef = doc(db, 'adedonhaRounds', roundId);
-    await updateDoc(roundRef, { status: 'scoring' });
+    await db.collection('adedonhaRounds').doc(roundId).update({ status: 'scoring' });
   }, []);
 
   const updateSubmissionScore = useCallback(async (subId: string, score: number) => {
-    await updateDoc(doc(db, 'adedonhaSubmissions', subId), { finalScore: score });
+    await db.collection('adedonhaSubmissions').doc(subId).update({ finalScore: score });
   }, []);
 
   const finalizeRound = useCallback(async (sessionId: string, roundId: string) => {
-    const sessionRef = doc(db, 'adedonhaSessions', sessionId);
-    const roundRef = doc(db, 'adedonhaRounds', roundId);
+    const sessionRef = db.collection('adedonhaSessions').doc(sessionId);
+    const roundRef = db.collection('adedonhaRounds').doc(roundId);
 
     try {
-        // Otimização: Ler todas as submissões fora da transação.
-        // Isso evita que a leitura de muitos documentos seja repetida se a transação falhar e precisar ser tentada novamente,
-        // o que provavelmente estava causando o erro 'resource-exhausted'.
-        const submissionsQuery = query(collection(db, 'adedonhaSubmissions'), where('roundId', '==', roundId));
-        const submissionsSnapshot = await getDocs(submissionsQuery);
-
-        await runTransaction(db, async (transaction) => {
+        await db.runTransaction(async (transaction) => {
             const sessionDoc = await transaction.get(sessionRef);
-            if (!sessionDoc.exists()) {
-                throw new Error("Sessão não encontrada!");
-            }
-
+            if (!sessionDoc.exists) throw new Error("Sessão não encontrada!");
             const sessionData = sessionDoc.data() as AdedonhaSession;
             const newScores = { ...sessionData.scores };
-            
-            // Agora, usamos os dados pré-carregados para calcular os novos placares.
-            submissionsSnapshot.forEach(doc => {
-                 const sub = doc.data() as AdedonhaSubmission;
-                 newScores[sub.studentName] = (newScores[sub.studentName] || 0) + sub.finalScore;
+            adedonhaSubmissions.forEach(sub => {
+                newScores[sub.studentName] = (newScores[sub.studentName] || 0) + sub.finalScore;
             });
-            
-            // A transação agora só faz uma leitura (sessionDoc) e duas escritas.
             transaction.update(sessionRef, { scores: newScores });
             transaction.update(roundRef, { status: 'finished' });
         });
-    } catch (e) {
-        console.error("Erro ao finalizar rodada:", e);
-    }
-  }, []);
+    } catch (e) { console.error("Erro ao finalizar rodada:", e); }
+  }, [adedonhaSubmissions]);
 
   const endAdedonhaSession = useCallback(async (sessionId: string) => {
-    await updateDoc(doc(db, 'adedonhaSessions', sessionId), { status: 'finished' });
+    await db.collection('adedonhaSessions').doc(sessionId).update({ status: 'finished' });
   }, []);
   
   // Student Actions
   const submitAdedonhaAnswer = useCallback(async (roundId: string, answer: string) => {
-    if (!user || user.role !== 'student' || !activeAdedonhaSession) return;
+    if (!user || user.role !== 'student') return;
+    // Check if submission already exists
     const existingSubmission = adedonhaSubmissions.find(s => s.roundId === roundId && s.studentName === user.name);
     if (existingSubmission) {
-        await updateDoc(doc(db, 'adedonhaSubmissions', existingSubmission.id), { answer });
+        await db.collection('adedonhaSubmissions').doc(existingSubmission.id).update({ answer });
     } else {
-        const newSubmission: Omit<AdedonhaSubmission, 'id'> = {
-            roundId, studentName: user.name, answer, finalScore: 0, isValid: null
+        const newSubmission = {
+            roundId, studentName: user.name, answer, rawScore: 0, finalScore: 0, sessionId: activeAdedonhaSession?.id
         };
-        await addDoc(collection(db, 'adedonhaSubmissions'), newSubmission);
+        await db.collection('adedonhaSubmissions').add(newSubmission);
     }
   }, [user, adedonhaSubmissions, activeAdedonhaSession]);
   
   const value: GameDataContextType = {
-    allUsers: allUsers,
-    classes: classes,
-    passwordChallenges: passwordChallenges,
-    combinacaoTotalChallenges: combinacaoTotalChallenges,
-    activeAdedonhaSession: activeAdedonhaSession,
-    activeAdedonhaRound: activeAdedonhaRound,
-    adedonhaSubmissions: adedonhaSubmissions,
-    onlineStudents: onlineStudents,
-    offlineStudents: offlineStudents,
-    getClassesForTeacher: getClassesForTeacher,
-    getStudentsInClass: getStudentsInClass,
-    getAllUsers: getAllUsers,
-    createClass: createClass,
-    deleteClass: deleteClass,
-    deleteStudent: deleteStudent,
-    updateStudentPassword: updateStudentPassword,
-    createPasswordChallenge: createPasswordChallenge,
-    updatePasswordChallenge: updatePasswordChallenge,
-    deletePasswordChallenge: deletePasswordChallenge,
-    unlockPasswordChallenge: unlockPasswordChallenge,
-    lockPasswordChallenge: lockPasswordChallenge,
-    clearChallengeRanking: clearChallengeRanking,
-    createCombinacaoTotalChallenge: createCombinacaoTotalChallenge,
-    deleteCombinacaoTotalChallenge: deleteCombinacaoTotalChallenge,
-    unlockCombinacaoTotalChallenge: unlockCombinacaoTotalChallenge,
-    lockCombinacaoTotalChallenge: lockCombinacaoTotalChallenge,
-    clearCombinacaoTotalRanking: clearCombinacaoTotalRanking,
-    createAdedonhaSession: createAdedonhaSession,
-    startAdedonhaRound: startAdedonhaRound,
-    endAdedonhaRoundForScoring: endAdedonhaRoundForScoring,
-    updateSubmissionScore: updateSubmissionScore,
-    finalizeRound: finalizeRound,
-    endAdedonhaSession: endAdedonhaSession,
-    submitAdedonhaAnswer: submitAdedonhaAnswer,
+    allUsers, classes, passwordChallenges, combinacaoTotalChallenges, activeAdedonhaSession, activeAdedonhaRound, adedonhaSubmissions, onlineStudents, offlineStudents,
+    getClassesForTeacher, getStudentsInClass, getAllUsers,
+    createClass, createPasswordChallenge, updatePasswordChallenge, deletePasswordChallenge, unlockPasswordChallenge, lockPasswordChallenge, clearChallengeRanking,
+    createCombinacaoTotalChallenge, deleteCombinacaoTotalChallenge, unlockCombinacaoTotalChallenge, lockCombinacaoTotalChallenge, clearCombinacaoTotalRanking,
+    createAdedonhaSession, startAdedonhaRound, endAdedonhaRoundForScoring, updateSubmissionScore, finalizeRound, endAdedonhaSession,
+    submitAdedonhaAnswer,
   };
 
   return <GameDataContext.Provider value={value}>{children}</GameDataContext.Provider>;

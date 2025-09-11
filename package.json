@@ -1,5 +1,5 @@
 {
-  "name": "prof-play",
+  "name": "copy-of-prof-play",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -14,8 +14,7 @@
     "jspdf": "2.5.1",
     "html2canvas": "1.4.1",
     "jspdf-autotable": "3.8.2",
-    "firebase": "10.12.2",
-    "@google/genai": "latest"
+    "firebase": "^12.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

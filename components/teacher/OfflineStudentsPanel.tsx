@@ -11,7 +11,7 @@ export const OfflineStudentsPanel: React.FC<OfflineStudentsPanelProps> = ({ teac
 
     return (
         <div className="bg-slate-900/70 p-6 rounded-lg">
-            <h2 className="text-xl font-bold text-slate-500 mb-4">Alunos Offlines ({offlineStudents.length})</h2>
+            <h2 className="text-xl font-bold text-slate-500 mb-4">Alunos Offlines</h2>
             <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
                 {offlineStudents.length > 0 ? offlineStudents.map(student => (
                     <div key={student.name} className="flex items-center gap-3 p-2 bg-slate-700 rounded-lg opacity-60">

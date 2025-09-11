@@ -32,8 +32,8 @@ export const PasswordRankingModal: React.FC<{
                 const completionTime = getJsDateFromTimestamp(stats.completionTimestamp);
                 return { name: student.name, avatar: student.avatar, attempts, completionTime };
             })
-            // FIX: Updated the type predicate to correctly handle the optional `avatar` property.
-            .filter((s): s is { name: string; avatar: string | undefined; attempts: number; completionTime: Date } => !!s && !!s.completionTime)
+            // FIX: Make avatar optional in the type predicate to match the UserProfile type.
+            .filter((s): s is { name: string; avatar?: string; attempts: number; completionTime: Date } => !!s && !!s.completionTime)
             .sort((a, b) => a.completionTime.getTime() - b.completionTime.getTime());
     }, [challenge, getStudentsInClass]);
 

@@ -16,9 +16,9 @@
     "jspdf": "https://esm.sh/jspdf@2.5.1",
     "html2canvas": "https://esm.sh/html2canvas@1.4.1",
     "jspdf-autotable": "https://esm.sh/jspdf-autotable@3.8.2",
-    "firebase": "https://esm.sh/firebase@10.12.2",
-    "firebase/": "https://esm.sh/firebase@10.12.2/",
-    "@google/genai": "https://esm.sh/@google/genai"
+    "firebase/app": "https://esm.sh/firebase@9.23.0/app",
+    "firebase/firestore": "https://esm.sh/firebase@9.23.0/firestore",
+    "firebase/": "https://esm.sh/firebase@^12.0.0/"
   }
 }
 </script>
@@ -107,15 +107,6 @@
     }
     .animate-fade-out {
         animation: fade-out 0.5s ease-out forwards;
-    }
-    @keyframes letter-spin {
-      0% { transform: translateY(-100px); opacity: 0; }
-      20% { transform: translateY(0); opacity: 1; }
-      80% { transform: translateY(0); opacity: 1; }
-      100% { transform: translateY(100px); opacity: 0; }
-    }
-    .letter-spinner span {
-      animation: letter-spin 0.5s ease-in-out forwards;
     }
 </style>
 </head>
