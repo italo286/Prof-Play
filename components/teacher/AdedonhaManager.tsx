@@ -31,11 +31,13 @@ const CountdownTimer: React.FC<{ startTime: any, duration: number }> = ({ startT
 const AdedonhaSessionView: React.FC<{ session: AdedonhaSession }> = ({ session }) => {
     const { 
         activeAdedonhaRound, adedonhaSubmissions, startAdedonhaRound, updateSubmissionScore, 
-        finalizeRound, endAdedonhaRoundForScoring, endAdedonhaSession, getStudentsInClass 
+        finalizeRound, endAdedonhaRoundForScoring, endAdedonhaSession, getStudentsInClass,
+        triggerAiValidation 
     } = useContext(GameDataContext);
     const [theme, setTheme] = useState('');
     const [letter, setLetter] = useState('');
-    const [duration, setDuration] = useState(30);
+    const [duration, setDuration] = useState(45);
+    const [isAiValidating, setIsAiValidating] = useState(false);
 
     const studentsInClass = useMemo(() => getStudentsInClass(session.classCode), [session.classCode, getStudentsInClass]);
     const avatarMap = useMemo(() => new Map(studentsInClass.map(s => [s.name, s.avatar])), [studentsInClass]);
@@ -44,12 +46,10 @@ const AdedonhaSessionView: React.FC<{ session: AdedonhaSession }> = ({ session }
         if (activeAdedonhaRound?.status === 'playing' && activeAdedonhaRound.startTime) {
             const startTime = getJsDateFromTimestamp(activeAdedonhaRound.startTime);
             if (!startTime) return;
-            const roundDuration = activeAdedonhaRound.duration || 30;
+            const roundDuration = activeAdedonhaRound.duration || 45;
             const endTime = startTime.getTime() + roundDuration * 1000;
             const remainingTime = endTime - Date.now();
-            if (remainingTime <= 0) {
-                 endAdedonhaRoundForScoring(activeAdedonhaRound.id);
-            } else {
+            if (remainingTime > 0) {
                 const timerId = setTimeout(() => { endAdedonhaRoundForScoring(activeAdedonhaRound.id); }, remainingTime);
                 return () => clearTimeout(timerId);
             }
@@ -64,14 +64,29 @@ const AdedonhaSessionView: React.FC<{ session: AdedonhaSession }> = ({ session }
         }
     };
     
+    const handleRandomLetter = () => {
+        const alphabet = 'ABCDEFGHIJKLMNOPRSTUVZ';
+        setLetter(alphabet[Math.floor(Math.random() * alphabet.length)]);
+    }
+
+    const handleAiValidation = async () => {
+        if (!activeAdedonhaRound) return;
+        setIsAiValidating(true);
+        await triggerAiValidation(activeAdedonhaRound.id, activeAdedonhaRound.theme, activeAdedonhaRound.letter);
+        setIsAiValidating(false);
+    }
+    
     const renderGameControl = () => {
         if (!activeAdedonhaRound || activeAdedonhaRound.status === 'finished') {
             return (
-                <div>
+                <div className="bg-slate-700 p-6 rounded-lg shadow-inner">
                     <h3 className="text-lg font-bold text-cyan-300 mb-2">Iniciar Nova Rodada</h3>
                     <div className="space-y-3">
-                        <input type="text" value={theme} onChange={e => setTheme(e.target.value)} placeholder="Tema (Ex: Fruta)" className="w-full p-2 bg-slate-800 rounded"/>
-                        <input type="text" value={letter} onChange={e => setLetter(e.target.value)} placeholder="Letra" maxLength={1} className="w-full p-2 bg-slate-800 rounded"/>
+                        <input type="text" value={theme} onChange={e => setTheme(e.target.value)} placeholder="Tema (Ex: Fruta)" className="w-full p-2 bg-slate-800 rounded border border-slate-600"/>
+                        <div className="flex gap-2">
+                           <input type="text" value={letter} onChange={e => setLetter(e.target.value)} placeholder="Letra" maxLength={1} className="flex-grow p-2 bg-slate-800 rounded border border-slate-600"/>
+                           <button onClick={handleRandomLetter} className="px-3 bg-sky-600 hover:bg-sky-700 rounded" title="Sortear Letra"><i className="fas fa-random"></i></button>
+                        </div>
                         <div>
                             <label className="text-sm text-slate-400">Duração: {duration}s</label>
                             <input type="range" min="15" max="60" step="5" value={duration} onChange={e => setDuration(Number(e.target.value))} className="w-full"/>
@@ -83,31 +98,53 @@ const AdedonhaSessionView: React.FC<{ session: AdedonhaSession }> = ({ session }
         }
         if (activeAdedonhaRound.status === 'playing') {
              return (
-                <div className="text-center">
+                <div className="text-center bg-slate-700 p-6 rounded-lg shadow-inner">
                     <h3 className="text-lg font-bold text-cyan-300 mb-2">Rodada em Andamento</h3>
                     <CountdownTimer startTime={activeAdedonhaRound.startTime} duration={activeAdedonhaRound.duration} />
                     <p>Tema: <span className="font-bold">{activeAdedonhaRound.theme}</span> | Letra: <span className="font-bold">{activeAdedonhaRound.letter}</span></p>
+                    <div className="mt-4">
+                        <h4 className="text-sm font-bold text-slate-300 mb-2">Submissões ({adedonhaSubmissions.length}/{studentsInClass.length})</h4>
+                        <div className="flex flex-wrap gap-2 justify-center">
+                            {studentsInClass.map(student => {
+                                const submitted = adedonhaSubmissions.some(s => s.studentName === student.name);
+                                return <span key={student.name} className={`px-2 py-1 text-xs rounded-full ${submitted ? 'bg-green-600 text-white' : 'bg-slate-600 text-slate-300'}`}>{student.name}</span>
+                            })}
+                        </div>
+                    </div>
                 </div>
             );
         }
         if (activeAdedonhaRound.status === 'scoring') {
+            const notValidated = adedonhaSubmissions.some(sub => sub.isValid === null);
             return (
-                <div>
-                    <h3 className="text-lg font-bold text-cyan-300 mb-2">Avaliar Respostas</h3>
-                    <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
-                        {adedonhaSubmissions.map(sub => (
-                            <div key={sub.id} className="p-2 bg-slate-800 rounded flex items-center justify-between gap-4">
-                                <span className="font-semibold flex-grow">{sub.studentName}: <span className="italic text-slate-300">{sub.answer || '(vazio)'}</span></span>
-                                <div className="flex-shrink-0 flex items-center gap-1">
-                                    {[0, 5, 10].map(score => (
-                                        <button key={score} onClick={() => updateSubmissionScore(sub.id, score)}
-                                                className={`w-10 h-8 rounded text-xs font-bold ${sub.finalScore === score ? 'bg-sky-500' : 'bg-slate-600 hover:bg-slate-500'}`}>
-                                            {score}
-                                        </button>
-                                    ))}
+                <div className="bg-slate-700 p-6 rounded-lg shadow-inner">
+                    <div className="flex justify-between items-center mb-2">
+                        <h3 className="text-lg font-bold text-cyan-300">Avaliar Respostas</h3>
+                        <button onClick={handleAiValidation} disabled={isAiValidating || !notValidated} className="px-3 py-1 bg-indigo-600 text-white text-sm font-semibold rounded disabled:bg-slate-500 disabled:cursor-wait">
+                            <i className={`fas ${isAiValidating ? 'fa-spinner fa-spin' : 'fa-magic'} mr-2`}></i>
+                            {isAiValidating ? 'Validando...' : 'Validar com IA'}
+                        </button>
+                    </div>
+                    <div className="space-y-2 max-h-80 overflow-y-auto pr-2">
+                        {adedonhaSubmissions.map(sub => {
+                            const validationIcon = sub.isValid === true ? 'fa-check-circle text-green-400' : sub.isValid === false ? 'fa-times-circle text-red-400' : 'fa-question-circle text-slate-500';
+                            return(
+                                <div key={sub.id} className="p-2 bg-slate-800 rounded flex items-center justify-between gap-4">
+                                    <div className="flex items-center gap-2">
+                                        <i className={`fas ${validationIcon}`}></i>
+                                        <span className="font-semibold flex-grow">{sub.studentName}: <span className="italic text-slate-300">{sub.answer || '(vazio)'}</span></span>
+                                    </div>
+                                    <div className="flex-shrink-0 flex items-center gap-1">
+                                        {[0, 5, 10].map(score => (
+                                            <button key={score} onClick={() => updateSubmissionScore(sub.id, score)}
+                                                    className={`w-10 h-8 rounded text-xs font-bold ${sub.finalScore === score ? 'bg-sky-500' : 'bg-slate-600 hover:bg-slate-500'}`}>
+                                                {score}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                     <button onClick={() => finalizeRound(session.id, activeAdedonhaRound.id)} className="w-full mt-3 py-2 bg-green-600 font-bold rounded">Finalizar Avaliação e Pontuar</button>
                 </div>
@@ -117,10 +154,10 @@ const AdedonhaSessionView: React.FC<{ session: AdedonhaSession }> = ({ session }
     };
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="md:col-span-1 bg-slate-900/70 p-4 rounded-lg">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-amber-800/10 p-4 rounded-lg" style={{backgroundImage: `url('https://www.transparenttextures.com/patterns/wood-pattern.png')`}}>
+            <div className="md:col-span-1 bg-slate-900/70 p-4 rounded-lg shadow-lg">
                 <h3 className="text-lg font-bold text-cyan-300 mb-2">Placar da Partida</h3>
-                <div className="space-y-2 max-h-80 overflow-y-auto pr-2">
+                <div className="space-y-2 max-h-[26rem] overflow-y-auto pr-2">
                     {Object.entries(session.scores).sort(([,a],[,b]) => b - a).map(([name, score]) => {
                         const avatar = avatarMap.get(name);
                         return (
@@ -138,7 +175,8 @@ const AdedonhaSessionView: React.FC<{ session: AdedonhaSession }> = ({ session }
                     <i className="fas fa-stop-circle mr-2"></i>Encerrar Sessão
                 </button>
             </div>
-            <div className="md:col-span-2 bg-slate-900/70 p-4 rounded-lg">
+            <div className="md:col-span-2">
+                <h2 className="text-2xl font-bold text-center mb-4 text-slate-100">Mesa do Professor</h2>
                 {renderGameControl()}
             </div>
         </div>

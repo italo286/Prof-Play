@@ -6,6 +6,7 @@ import {
 } from 'firebase/firestore';
 import type { UserProfile, ClassData, PasswordChallenge, AdedonhaSession, AdedonhaRound, AdedonhaSubmission, CombinacaoTotalChallenge } from '../types';
 import { AuthContext } from './AuthContext';
+import { validateAdedonhaAnswers } from '../utils/gemini';
 
 const GAME_ID_PASSWORD = 'password_unlock';
 const GAME_ID_COMBINACAO = 'combinacao_total';
@@ -46,6 +47,7 @@ interface GameDataContextType {
   createAdedonhaSession: (classCode: string) => Promise<string | null>;
   startAdedonhaRound: (sessionId: string, theme: string, letter: string, duration: number) => Promise<void>;
   endAdedonhaRoundForScoring: (roundId: string) => Promise<void>;
+  triggerAiValidation: (roundId: string, category: string, letter: string) => Promise<void>;
   updateSubmissionScore: (submissionId: string, newScore: number) => Promise<void>;
   finalizeRound: (sessionId: string, roundId: string) => Promise<void>;
   endAdedonhaSession: (sessionId: string) => Promise<void>;
@@ -391,49 +393,45 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [activeAdedonhaSession, activeAdedonhaRound]);
 
   const endAdedonhaRoundForScoring = useCallback(async (roundId: string) => {
-    // 1. Fetch all submissions for the round to perform pre-scoring
-    const submissionsQuery = query(collection(db, 'adedonhaSubmissions'), where('roundId', '==', roundId));
-    const submissionsSnapshot = await getDocs(submissionsQuery);
-    
-    // 2. Normalize answers and count frequencies
-    const answerCounts = new Map<string, number>();
-    const submissions: (AdedonhaSubmission & { docId: string })[] = [];
-
-    submissionsSnapshot.forEach(doc => {
-        const data = doc.data() as AdedonhaSubmission;
-        submissions.push({ ...data, id: doc.id, docId: doc.id });
-        const normalizedAnswer = (data.answer || '').trim().toLowerCase();
-        if (normalizedAnswer) {
-            answerCounts.set(normalizedAnswer, (answerCounts.get(normalizedAnswer) || 0) + 1);
-        }
-    });
-
-    const batch = writeBatch(db);
-
-    // 3. Calculate scores based on uniqueness and update documents
-    submissions.forEach(sub => {
-        const normalizedAnswer = (sub.answer || '').trim().toLowerCase();
-        let score = 0;
-        if (normalizedAnswer) {
-            const count = answerCounts.get(normalizedAnswer) || 0;
-            if (count > 1) {
-                score = 5; // Repeated answer
-            } else if (count === 1) {
-                score = 10; // Unique answer
-            }
-        }
-        
-        const subRef = doc(db, 'adedonhaSubmissions', sub.docId);
-        // Pre-fill the score, which the teacher can later adjust
-        batch.update(subRef, { finalScore: score, rawScore: score });
-    });
-    
-    // 4. Update round status to 'scoring'
     const roundRef = doc(db, 'adedonhaRounds', roundId);
-    batch.update(roundRef, { status: 'scoring' });
+    await updateDoc(roundRef, { status: 'scoring' });
+  }, []);
+  
+  const triggerAiValidation = useCallback(async (roundId: string, category: string, letter: string) => {
+    const subsQuery = query(collection(db, 'adedonhaSubmissions'), where('roundId', '==', roundId));
+    const subsSnapshot = await getDocs(subsQuery);
+    
+    const submissions = subsSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as AdedonhaSubmission));
+    const answers = submissions.map(s => s.answer).filter(Boolean);
 
-    // 5. Commit all changes atomically
-    await batch.commit();
+    if (answers.length === 0) return;
+
+    try {
+        const validationResults = await validateAdedonhaAnswers(category, letter, answers);
+        const validationMap = new Map(validationResults.map(r => [r.answer.toLowerCase(), r.isValid]));
+        
+        const answerCounts = new Map<string, number>();
+        answers.forEach(answer => {
+            const normalized = answer.trim().toLowerCase();
+            answerCounts.set(normalized, (answerCounts.get(normalized) || 0) + 1);
+        });
+
+        const batch = writeBatch(db);
+        submissions.forEach(sub => {
+            const subRef = doc(db, 'adedonhaSubmissions', sub.id);
+            const normalizedAnswer = sub.answer.trim().toLowerCase();
+            const isValid = validationMap.get(normalizedAnswer) ?? false;
+            let score = 0;
+            if (isValid) {
+                score = (answerCounts.get(normalizedAnswer) || 0) > 1 ? 5 : 10;
+            }
+            batch.update(subRef, { isValid: isValid, finalScore: score });
+        });
+        await batch.commit();
+
+    } catch (error) {
+        console.error("AI Validation Failed:", error);
+    }
   }, []);
 
   const updateSubmissionScore = useCallback(async (subId: string, score: number) => {
@@ -453,12 +451,13 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
             const sessionData = sessionDoc.data() as AdedonhaSession;
             const newScores = { ...sessionData.scores };
-
-            // Use the submissions from the component's state, which is kept live by onSnapshot.
-            adedonhaSubmissions.forEach(sub => {
-                if(sub.roundId === roundId) { // Ensure we only use submissions for the current round
-                    newScores[sub.studentName] = (newScores[sub.studentName] || 0) + sub.finalScore;
-                }
+            
+            const submissionsQuery = query(collection(db, 'adedonhaSubmissions'), where('roundId', '==', roundId));
+            const submissionsSnapshot = await getDocs(submissionsQuery);
+            
+            submissionsSnapshot.forEach(doc => {
+                 const sub = doc.data() as AdedonhaSubmission;
+                 newScores[sub.studentName] = (newScores[sub.studentName] || 0) + sub.finalScore;
             });
             
             transaction.update(sessionRef, { scores: newScores });
@@ -467,7 +466,7 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } catch (e) {
         console.error("Erro ao finalizar rodada:", e);
     }
-  }, [adedonhaSubmissions]);
+  }, []);
 
   const endAdedonhaSession = useCallback(async (sessionId: string) => {
     await updateDoc(doc(db, 'adedonhaSessions', sessionId), { status: 'finished' });
@@ -475,13 +474,13 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   
   // Student Actions
   const submitAdedonhaAnswer = useCallback(async (roundId: string, answer: string) => {
-    if (!user || user.role !== 'student') return;
+    if (!user || user.role !== 'student' || !activeAdedonhaSession) return;
     const existingSubmission = adedonhaSubmissions.find(s => s.roundId === roundId && s.studentName === user.name);
     if (existingSubmission) {
         await updateDoc(doc(db, 'adedonhaSubmissions', existingSubmission.id), { answer });
     } else {
-        const newSubmission = {
-            roundId, studentName: user.name, answer, rawScore: 0, finalScore: 0, sessionId: activeAdedonhaSession?.id
+        const newSubmission: Omit<AdedonhaSubmission, 'id'> = {
+            roundId, studentName: user.name, answer, finalScore: 0, isValid: null
         };
         await addDoc(collection(db, 'adedonhaSubmissions'), newSubmission);
     }
@@ -519,6 +518,7 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     createAdedonhaSession: createAdedonhaSession,
     startAdedonhaRound: startAdedonhaRound,
     endAdedonhaRoundForScoring: endAdedonhaRoundForScoring,
+    triggerAiValidation: triggerAiValidation,
     updateSubmissionScore: updateSubmissionScore,
     finalizeRound: finalizeRound,
     endAdedonhaSession: endAdedonhaSession,
