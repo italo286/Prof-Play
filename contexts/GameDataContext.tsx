@@ -401,6 +401,12 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const roundRef = doc(db, 'adedonhaRounds', roundId);
 
     try {
+        // Otimização: Ler todas as submissões fora da transação.
+        // Isso evita que a leitura de muitos documentos seja repetida se a transação falhar e precisar ser tentada novamente,
+        // o que provavelmente estava causando o erro 'resource-exhausted'.
+        const submissionsQuery = query(collection(db, 'adedonhaSubmissions'), where('roundId', '==', roundId));
+        const submissionsSnapshot = await getDocs(submissionsQuery);
+
         await runTransaction(db, async (transaction) => {
             const sessionDoc = await transaction.get(sessionRef);
             if (!sessionDoc.exists()) {
@@ -410,14 +416,13 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             const sessionData = sessionDoc.data() as AdedonhaSession;
             const newScores = { ...sessionData.scores };
             
-            const submissionsQuery = query(collection(db, 'adedonhaSubmissions'), where('roundId', '==', roundId));
-            const submissionsSnapshot = await getDocs(submissionsQuery);
-            
+            // Agora, usamos os dados pré-carregados para calcular os novos placares.
             submissionsSnapshot.forEach(doc => {
                  const sub = doc.data() as AdedonhaSubmission;
                  newScores[sub.studentName] = (newScores[sub.studentName] || 0) + sub.finalScore;
             });
             
+            // A transação agora só faz uma leitura (sessionDoc) e duas escritas.
             transaction.update(sessionRef, { scores: newScores });
             transaction.update(roundRef, { status: 'finished' });
         });
