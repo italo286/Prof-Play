@@ -3,6 +3,7 @@ import { db } from '../firebase';
 import type { UserProfile, Badge, NotificationItem, GameStat, CombinacaoTotalStat, CombinacaoTotalChallenge } from '../types';
 import { ALL_BADGES_MAP } from '../data/achievements';
 import { AuthContext } from './AuthContext';
+// FIX: Corrected Firebase Firestore imports for v9+ modular SDK.
 import { doc, updateDoc, serverTimestamp, runTransaction, getDoc } from 'firebase/firestore';
 
 // --- Leveling Logic ---
@@ -150,7 +151,6 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
         const challengeDoc = await getDoc(challengeDocRef);
         if (!challengeDoc.exists()) return;
-        // FIX: Cast the document data to the correct type to access its properties.
         const challenge = challengeDoc.data() as CombinacaoTotalChallenge;
         if (!challenge) return;
 

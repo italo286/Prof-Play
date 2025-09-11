@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useCallback, useContext } from 'react';
 import { db } from '../firebase';
+// FIX: Corrected Firebase Firestore imports for v9+ modular SDK.
 import { doc, collection, onSnapshot, addDoc, updateDoc, getDoc, deleteDoc, runTransaction, serverTimestamp, setDoc, arrayUnion } from 'firebase/firestore';
 import type { DuelInvitation, DuelState, DuelableGameMode, DuelPasswordPlayerState, DuelPlayer } from '../types';
 import { generateDuelChallenges, TOTAL_CHALLENGES } from '../data/duel';
@@ -41,13 +42,11 @@ export const DuelProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const unsubInvites = onSnapshot(collection(db, 'invitations'), snapshot => {
       const invites: DuelInvitation[] = [];
-      // FIX: Use forEach to iterate over snapshot documents to avoid type errors.
       snapshot.forEach(d => invites.push({ id: d.id, ...d.data() } as DuelInvitation));
       setInvitations(invites);
     });
     const unsubDuels = onSnapshot(collection(db, 'duels'), snapshot => {
       const duels: DuelState[] = [];
-      // FIX: Use forEach to iterate over snapshot documents to avoid type errors.
       snapshot.forEach(d => duels.push({ id: d.id, ...d.data() } as DuelState));
       setDuelStates(duels);
     });

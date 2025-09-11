@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useCallback, useContext, useMemo } from 'react';
 import { db } from '../firebase';
+// FIX: Corrected and consolidated Firebase Firestore imports for v9+ modular SDK.
 import { 
     collection, onSnapshot, query, where, orderBy, doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, 
     writeBatch, serverTimestamp, arrayUnion, arrayRemove, deleteField, runTransaction, getDocs

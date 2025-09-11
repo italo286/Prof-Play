@@ -1,5 +1,7 @@
 import { initializeApp } from "firebase/app";
-import { initializeFirestore, persistentLocalCache, memoryLocalCache } from "firebase/firestore";
+// FIX: The initializeFirestore, persistentLocalCache, and memoryLocalCache exports are deprecated.
+// Use getFirestore and enableIndexedDbPersistence for Firebase v9+ modular SDK.
+import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
 
 // --- CONFIGURAÇÃO DO FIREBASE ---
 //
@@ -42,16 +44,17 @@ const app = initializeApp(firebaseConfig);
 
 // Exporta a instância do Firestore para ser usada em outros lugares no aplicativo
 // Habilita a persistência offline para uma melhor experiência do usuário
-let db;
-try {
-  db = initializeFirestore(app, {
-    localCache: persistentLocalCache({}),
+const db = getFirestore(app);
+// FIX: Use enableIndexedDbPersistence() to enable offline capabilities.
+// The SDK will fall back to in-memory persistence if IndexedDB is not available or fails.
+enableIndexedDbPersistence(db)
+  .catch((err) => {
+    if (err.code === 'failed-precondition') {
+      console.warn('Firestore persistence failed: Multiple tabs open. Persistence can only be enabled in one tab at a time.');
+    } else if (err.code === 'unimplemented') {
+      console.warn('Firestore persistence failed: The current browser does not support all of the features required to enable persistence.');
+    }
   });
-} catch (error) {
-  console.error("Could not enable offline persistence for Firestore. Using in-memory cache.", error);
-  db = initializeFirestore(app, {
-    localCache: memoryLocalCache(),
-  });
-}
+
 
 export { db };

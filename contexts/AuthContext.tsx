@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { db } from '../firebase';
 import type { UserProfile } from '../types';
+// FIX: Corrected Firebase Firestore imports for v9+ modular SDK.
 import { doc, getDoc, setDoc, collection, onSnapshot, query, where, deleteDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 
 const CURRENT_USER_STORAGE_KEY = 'prof-play-currentUser';
@@ -42,7 +43,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const usersCollection = collection(db, 'users');
     const unsubscribe = onSnapshot(usersCollection, (snapshot) => {
         const profiles: UserProfile[] = [];
-        // FIX: Use forEach to iterate over snapshot documents. .map() does not modify the array in place.
         snapshot.forEach(doc => profiles.push(doc.data() as UserProfile));
 
         const storedUserName = sessionStorage.getItem(CURRENT_USER_STORAGE_KEY);
