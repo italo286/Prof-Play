@@ -28,10 +28,10 @@ const CountdownTimer: React.FC<{ startTime: any, duration: number }> = ({ startT
     return <div className={`text-4xl font-mono font-bold ${color}`}>{timeLeft}s</div>;
 };
 
-const AdedonhaSessionView: React.FC<{ session: AdedonhaSession }> = ({ session }) => {
+const AdedonhaSessionView: React.FC<{ session: AdedonhaSession, onEnd: (session: AdedonhaSession) => void, onGoBackToLobby?: () => void }> = ({ session, onEnd, onGoBackToLobby }) => {
     const { 
         activeAdedonhaRound, adedonhaSubmissions, startAdedonhaRound, updateSubmissionScore, 
-        finalizeRound, endAdedonhaRoundForScoring, endAdedonhaSession, getStudentsInClass
+        finalizeRound, endAdedonhaRoundForScoring, getStudentsInClass
     } = useContext(GameDataContext);
     const [theme, setTheme] = useState('');
     const [letter, setLetter] = useState('');
@@ -44,11 +44,17 @@ const AdedonhaSessionView: React.FC<{ session: AdedonhaSession }> = ({ session }
         if (activeAdedonhaRound?.status === 'playing' && activeAdedonhaRound.startTime) {
             const startTime = getJsDateFromTimestamp(activeAdedonhaRound.startTime);
             if (!startTime) return;
-            const roundDuration = activeAdedonhaRound.duration || 45;
+            
+            const roundDuration = activeAdedonhaRound.duration;
             const endTime = startTime.getTime() + roundDuration * 1000;
             const remainingTime = endTime - Date.now();
-            if (remainingTime > 0) {
-                const timerId = setTimeout(() => { endAdedonhaRoundForScoring(activeAdedonhaRound.id); }, remainingTime);
+
+            if (remainingTime <= 0) {
+                endAdedonhaRoundForScoring(activeAdedonhaRound.id);
+            } else {
+                const timerId = setTimeout(() => {
+                    endAdedonhaRoundForScoring(activeAdedonhaRound.id);
+                }, remainingTime);
                 return () => clearTimeout(timerId);
             }
         }
@@ -65,6 +71,36 @@ const AdedonhaSessionView: React.FC<{ session: AdedonhaSession }> = ({ session }
     const handleRandomLetter = () => {
         const alphabet = 'ABCDEFGHIJKLMNOPRSTUVZ';
         setLetter(alphabet[Math.floor(Math.random() * alphabet.length)]);
+    }
+
+    if (session.status === 'finished' && onGoBackToLobby) {
+        return (
+            <div className="text-center p-6 bg-slate-900/70 rounded-lg shadow-lg animate-fade-in">
+                <i className="fas fa-trophy text-5xl text-amber-400 mb-4"></i>
+                <h2 className="text-2xl font-bold text-slate-100">Sessão Encerrada</h2>
+                <p className="text-slate-400 mb-4">Confira o placar final!</p>
+                 <div className="md:col-span-1 bg-slate-800 p-4 rounded-lg shadow-lg">
+                    <h3 className="text-lg font-bold text-cyan-300 mb-2">Placar Final</h3>
+                    <div className="space-y-2 max-h-[26rem] overflow-y-auto pr-2">
+                        {Object.entries(session.scores).sort(([,a],[,b]) => b - a).map(([name, score]) => {
+                            const avatar = avatarMap.get(name);
+                            return (
+                                <div key={name} className="flex justify-between items-center p-2 bg-slate-700 rounded">
+                                    <div className="flex items-center gap-2">
+                                        {avatar && <img src={avatar} alt={`Avatar de ${name}`} className="w-8 h-8 rounded-full bg-slate-600"/>}
+                                        <span className="font-semibold">{name}</span>
+                                    </div>
+                                    <span className="font-bold text-sky-300">{score} pontos</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+                <button onClick={onGoBackToLobby} className="w-full mt-4 py-2 bg-sky-600 text-white font-bold rounded hover:bg-sky-700">
+                    <i className="fas fa-arrow-left mr-2"></i>Voltar ao Lobby
+                </button>
+            </div>
+        )
     }
     
     const renderGameControl = () => {
@@ -157,7 +193,7 @@ const AdedonhaSessionView: React.FC<{ session: AdedonhaSession }> = ({ session }
                         );
                     })}
                 </div>
-                <button onClick={() => endAdedonhaSession(session.id)} className="w-full mt-4 py-2 bg-red-600 text-white font-bold rounded hover:bg-red-700">
+                <button onClick={() => onEnd(session)} className="w-full mt-4 py-2 bg-red-600 text-white font-bold rounded hover:bg-red-700">
                     <i className="fas fa-stop-circle mr-2"></i>Encerrar Sessão
                 </button>
             </div>
@@ -170,15 +206,26 @@ const AdedonhaSessionView: React.FC<{ session: AdedonhaSession }> = ({ session }
 };
 
 export const AdedonhaManager: React.FC<{ teacherClasses: ClassData[] }> = ({ teacherClasses }) => {
-    const { activeAdedonhaSession, createAdedonhaSession } = useContext(GameDataContext);
+    const { activeAdedonhaSession, createAdedonhaSession, endAdedonhaSession } = useContext(GameDataContext);
     const [selectedClass, setSelectedClass] = useState<string>('');
+    const [finishedSession, setFinishedSession] = useState<AdedonhaSession | null>(null);
+
+    const sessionToRender = activeAdedonhaSession || finishedSession;
 
     const handleStartSession = async () => {
-        if (selectedClass) await createAdedonhaSession(selectedClass);
+        if (selectedClass) {
+            setFinishedSession(null);
+            await createAdedonhaSession(selectedClass);
+        }
     };
     
-    if (activeAdedonhaSession) {
-        return <AdedonhaSessionView session={activeAdedonhaSession} />;
+    const handleEndSession = (sessionData: AdedonhaSession) => {
+        endAdedonhaSession(sessionData.id); // This makes activeAdedonhaSession from context null
+        setFinishedSession({ ...sessionData, status: 'finished' }); // We capture the data locally
+    };
+
+    if (sessionToRender) {
+        return <AdedonhaSessionView session={sessionToRender} onEnd={handleEndSession} onGoBackToLobby={() => setFinishedSession(null)} />;
     }
 
     return (

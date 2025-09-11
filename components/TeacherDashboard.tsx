@@ -50,11 +50,11 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
   }, [selectedClassCode, getStudentsInClass, allOnlineStudents]); // Dependency on allOnlineStudents to refresh on student data changes
   
   const onlineInClass = useMemo(() => allOnlineStudents.filter(s => s.classCode === selectedClassCode), [allOnlineStudents, selectedClassCode]);
+  const onlineStudentNames = useMemo(() => new Set(onlineInClass.map(s => s.name)), [onlineInClass]);
   const offlineInClass = useMemo(() => {
     if (!selectedClassCode) return [];
-    const onlineNames = new Set(onlineInClass.map(s => s.name));
-    return getStudentsInClass(selectedClassCode).filter(s => !onlineNames.has(s.name));
-  }, [onlineInClass, getStudentsInClass, selectedClassCode]);
+    return getStudentsInClass(selectedClassCode).filter(s => !onlineStudentNames.has(s.name));
+  }, [onlineStudentNames, getStudentsInClass, selectedClassCode]);
 
   const handleCreateClass = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -177,7 +177,7 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
               )}
               {classDetailTab === 'gerenciar' && (
                   students.length > 0 
-                    ? <ManageStudentsList students={students} onDeleteStudent={setStudentToDelete} onEditStudent={setStudentToEdit} />
+                    ? <ManageStudentsList students={students} onDeleteStudent={setStudentToDelete} onEditStudent={setStudentToEdit} onlineStudentNames={onlineStudentNames}/>
                     : <p className="text-slate-400 text-center mt-8 py-16">Nenhum aluno para gerenciar.</p>
               )}
                {classDetailTab === 'atividade' && (
