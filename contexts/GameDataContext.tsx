@@ -446,19 +446,38 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const roundRef = doc(db, 'adedonhaRounds', roundId);
 
     try {
+        // Fetch the latest submissions directly, BEFORE the transaction, to avoid using stale state.
+        const submissionsQuery = query(collection(db, 'adedonhaSubmissions'), where('roundId', '==', roundId));
+        const submissionsSnapshot = await getDocs(submissionsQuery);
+        
+        const currentSubmissions: AdedonhaSubmission[] = [];
+        submissionsSnapshot.forEach(doc => {
+            currentSubmissions.push(doc.data() as AdedonhaSubmission);
+        });
+
+        // Use a transaction to atomically read the session and then write all updates.
         await runTransaction(db, async (transaction) => {
             const sessionDoc = await transaction.get(sessionRef);
-            if (!sessionDoc.exists()) throw new Error("Sessão não encontrada!");
+            if (!sessionDoc.exists()) {
+                throw new Error("Sessão não encontrada!");
+            }
+
             const sessionData = sessionDoc.data() as AdedonhaSession;
             const newScores = { ...sessionData.scores };
-            adedonhaSubmissions.forEach(sub => {
+
+            // Calculate new total scores based on the freshly fetched submissions for this round.
+            currentSubmissions.forEach(sub => {
                 newScores[sub.studentName] = (newScores[sub.studentName] || 0) + sub.finalScore;
             });
+            
+            // Update the session scores and set the round status to 'finished' within the transaction.
             transaction.update(sessionRef, { scores: newScores });
             transaction.update(roundRef, { status: 'finished' });
         });
-    } catch (e) { console.error("Erro ao finalizar rodada:", e); }
-  }, [adedonhaSubmissions]);
+    } catch (e) {
+        console.error("Erro ao finalizar rodada:", e);
+    }
+}, []);
 
   const endAdedonhaSession = useCallback(async (sessionId: string) => {
     await updateDoc(doc(db, 'adedonhaSessions', sessionId), { status: 'finished' });

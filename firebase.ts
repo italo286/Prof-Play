@@ -1,5 +1,5 @@
-// FIX: Changed import path for initializeApp from "firebase/app" to "firebase" to resolve the module export error, which can occur with certain Firebase SDK versions.
-import { initializeApp } from "firebase";
+// FIX: Corrected import path for initializeApp to "firebase/app" for Firebase v9+ modular SDK.
+import { initializeApp } from "firebase/app";
 import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
 
 // --- CONFIGURAÇÃO DO FIREBASE ---
