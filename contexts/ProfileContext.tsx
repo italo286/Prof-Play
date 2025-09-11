@@ -166,7 +166,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
             if (statIndex > -1) {
                 const oldStat = existingStats[statIndex];
                 if (oldStat.foundCombinations.includes(combination)) return;
-                const updatedStat = { ...oldStat, foundCombinations: [...oldStat.foundCombinations, combination] };
+                const updatedStat = { ...oldStat, foundCombinations: [...oldStat.foundCombinations, combination].sort() };
                 if (updatedStat.foundCombinations.length >= challenge.totalCombinations) {
                     updatedStat.isComplete = true;
                     if (!updatedStat.completionTimestamp) updatedStat.completionTimestamp = serverTimestamp();

@@ -87,12 +87,9 @@ const GameView: React.FC<{ challenge: CombinacaoTotalChallenge, onBack: () => vo
     const myStat = useMemo(() => {
         return user?.combinacaoTotalStats?.find(s => s.challengeId === challenge.id) || { challengeId: challenge.id, foundCombinations: [], isComplete: false };
     }, [user, challenge.id]);
-
-    const [foundCombinations, setFoundCombinations] = useState(myStat.foundCombinations);
-
-    useEffect(() => {
-        setFoundCombinations(myStat.foundCombinations);
-    }, [myStat.foundCombinations]);
+    
+    // Use data directly from context to avoid state synchronization bugs
+    const foundCombinations = myStat.foundCombinations;
 
     const classmates = useMemo(() => {
         if (!user?.classCode) return [];
@@ -100,6 +97,9 @@ const GameView: React.FC<{ challenge: CombinacaoTotalChallenge, onBack: () => vo
     }, [user, getStudentsInClass]);
 
     const rankedClassmates = useMemo(() => {
+        // This dependency ensures the ranking updates when any student's data changes
+        const allStats = classmates.map(s => s.combinacaoTotalStats).flat(); 
+        
         return classmates
             .map(student => {
                 const stat = student.combinacaoTotalStats?.find(s => s.challengeId === challenge.id);
@@ -122,7 +122,6 @@ const GameView: React.FC<{ challenge: CombinacaoTotalChallenge, onBack: () => vo
         setMessage(validation.message);
         if (validation.isValid && validation.isNew) {
             setMessageType('success');
-            setFoundCombinations(prev => [...prev, attempt].sort());
             logCombinacaoTotalAttempt(challenge.id, attempt);
         } else if (validation.isValid && !validation.isNew) {
             setMessageType('info');
@@ -177,7 +176,7 @@ const GameView: React.FC<{ challenge: CombinacaoTotalChallenge, onBack: () => vo
                 <div className="bg-slate-900/70 p-4 rounded-lg mt-4">
                     <h3 className="font-bold text-lg text-cyan-300 mb-2">Suas Combinações ({foundCombinations.length} / {totalCount})</h3>
                     <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 max-h-48 overflow-y-auto pr-2">
-                        {foundCombinations.map(c => (
+                        {[...foundCombinations].sort().map(c => (
                             <div key={c} className="p-2 bg-slate-700 text-center font-mono rounded-md animate-fade-in-down">
                                 {c}
                             </div>
@@ -191,7 +190,7 @@ const GameView: React.FC<{ challenge: CombinacaoTotalChallenge, onBack: () => vo
                 <h3 className="font-bold text-lg text-cyan-300 mb-2">Ranking da Turma</h3>
                 <div className="space-y-2 max-h-[34rem] overflow-y-auto pr-2">
                     {rankedClassmates.map((student, index) => {
-                         const percentage = (student.foundCount / totalCount) * 100;
+                         const percentage = totalCount > 0 ? (student.foundCount / totalCount) * 100 : 0;
                          const isCurrentUser = student.name === user?.name;
                          return (
                             <div key={student.name} className={`p-2 rounded-md ${isCurrentUser ? 'bg-sky-800/50' : 'bg-slate-800'}`}>
