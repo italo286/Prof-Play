@@ -446,16 +446,17 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const roundRef = doc(db, 'adedonhaRounds', roundId);
 
     try {
-        await runTransaction(db, async (transaction) => {
-            // Fetch submissions inside the transaction's callback to ensure data is not stale on retries.
-            const submissionsQuery = query(collection(db, 'adedonhaSubmissions'), where('roundId', '==', roundId));
-            const submissionsSnapshot = await getDocs(submissionsQuery);
-            
-            const currentSubmissions: AdedonhaSubmission[] = [];
-            submissionsSnapshot.forEach(doc => {
-                currentSubmissions.push(doc.data() as AdedonhaSubmission);
-            });
+        // First, get all the submissions for the round. This read happens outside the transaction.
+        const submissionsQuery = query(collection(db, 'adedonhaSubmissions'), where('roundId', '==', roundId));
+        const submissionsSnapshot = await getDocs(submissionsQuery);
 
+        const currentSubmissions: AdedonhaSubmission[] = [];
+        submissionsSnapshot.forEach(doc => {
+            currentSubmissions.push(doc.data() as AdedonhaSubmission);
+        });
+
+        // Now, run a transaction to update the scores and round status atomically.
+        await runTransaction(db, async (transaction) => {
             const sessionDoc = await transaction.get(sessionRef);
             if (!sessionDoc.exists()) {
                 throw new Error("Sessão não encontrada!");
