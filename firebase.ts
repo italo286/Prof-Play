@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
+import { initializeFirestore, persistentLocalCache, memoryLocalCache } from "firebase/firestore";
 
 // --- CONFIGURAÇÃO DO FIREBASE ---
 //
@@ -41,16 +41,17 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 
 // Exporta a instância do Firestore para ser usada em outros lugares no aplicativo
-export const db = getFirestore(app);
-
 // Habilita a persistência offline para uma melhor experiência do usuário
-enableIndexedDbPersistence(db)
-  .catch((err) => {
-    if (err.code == 'failed-precondition') {
-      // Múltiplas abas abertas, a persistência só pode ser ativada em uma aba de cada vez.
-      console.warn("Firestore persistence failed: Múltiplas abas abertas.");
-    } else if (err.code == 'unimplemented') {
-      // O navegador atual não suporta todos os recursos necessários para habilitar a persistência.
-      console.warn("Firestore persistence failed: Navegador não suportado.");
-    }
+let db;
+try {
+  db = initializeFirestore(app, {
+    localCache: persistentLocalCache({}),
   });
+} catch (error) {
+  console.error("Could not enable offline persistence for Firestore. Using in-memory cache.", error);
+  db = initializeFirestore(app, {
+    localCache: memoryLocalCache(),
+  });
+}
+
+export { db };

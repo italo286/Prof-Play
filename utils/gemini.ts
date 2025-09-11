@@ -1,6 +1,13 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+// The Gemini API key is expected to be available in the process.env.API_KEY variable.
+// If it's not set, the AI-powered features will be disabled gracefully instead of crashing the app.
+let ai: GoogleGenAI | null = null;
+try {
+    ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+} catch (error) {
+    console.error("Failed to initialize GoogleGenAI. The API_KEY environment variable is likely missing. AI features will be disabled.", error);
+}
 
 interface AdedonhaValidationResult {
     answer: string;
@@ -32,6 +39,11 @@ const responseSchema = {
 };
 
 export const validateAdedonhaAnswers = async (category: string, letter: string, answers: string[]): Promise<AdedonhaValidationResult[]> => {
+    if (!ai) {
+        console.warn("GoogleGenAI not initialized. Skipping AI validation.");
+        return answers.map(answer => ({ answer, isValid: false, reason: "Validação automática indisponível." }));
+    }
+
     if (!answers || answers.length === 0) {
         return [];
     }
