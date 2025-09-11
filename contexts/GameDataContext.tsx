@@ -74,9 +74,9 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   useEffect(() => {
     const unsubscribes = [
-      // FIX: Use snapshot.forEach to iterate over docs to fix type error.
       onSnapshot(collection(db, 'users'), snapshot => {
           const data: UserProfile[] = [];
+          // FIX: Use snapshot.forEach to iterate over docs to fix type error.
           snapshot.forEach(doc => data.push(doc.data() as UserProfile));
           setAllUsers(data);
       }),
@@ -129,8 +129,8 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const roundUnsub = onSnapshot(roundQuery, snapshot => {
         // FIX: Use snapshot.size instead of snapshot.empty to check for documents.
         if (snapshot.size > 0) {
-            // FIX: Use snapshot.forEach to iterate over docs to fix type error.
             const rounds: AdedonhaRound[] = [];
+            // FIX: Use snapshot.forEach to iterate over docs to fix type error.
             snapshot.forEach(doc => rounds.push({ id: doc.id, ...doc.data() } as AdedonhaRound));
             rounds.sort((a, b) => b.roundNumber - a.roundNumber);
             setActiveAdedonhaRound(rounds[0]);
@@ -206,7 +206,6 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     let isUnique = false;
     while (!isUnique) {
         newClassCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-        // FIX: Removed extra parenthesis from getDoc call.
         const existingClass = await getDoc(doc(db, 'classes', newClassCode)); // Simplified check
         if (!existingClass.exists()) {
             isUnique = true;
@@ -446,16 +445,6 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const roundRef = doc(db, 'adedonhaRounds', roundId);
 
     try {
-        // First, get all the submissions for the round. This read happens outside the transaction.
-        const submissionsQuery = query(collection(db, 'adedonhaSubmissions'), where('roundId', '==', roundId));
-        const submissionsSnapshot = await getDocs(submissionsQuery);
-
-        const currentSubmissions: AdedonhaSubmission[] = [];
-        submissionsSnapshot.forEach(doc => {
-            currentSubmissions.push(doc.data() as AdedonhaSubmission);
-        });
-
-        // Now, run a transaction to update the scores and round status atomically.
         await runTransaction(db, async (transaction) => {
             const sessionDoc = await transaction.get(sessionRef);
             if (!sessionDoc.exists()) {
@@ -465,8 +454,11 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             const sessionData = sessionDoc.data() as AdedonhaSession;
             const newScores = { ...sessionData.scores };
 
-            currentSubmissions.forEach(sub => {
-                newScores[sub.studentName] = (newScores[sub.studentName] || 0) + sub.finalScore;
+            // Use the submissions from the component's state, which is kept live by onSnapshot.
+            adedonhaSubmissions.forEach(sub => {
+                if(sub.roundId === roundId) { // Ensure we only use submissions for the current round
+                    newScores[sub.studentName] = (newScores[sub.studentName] || 0) + sub.finalScore;
+                }
             });
             
             transaction.update(sessionRef, { scores: newScores });
@@ -475,7 +467,7 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } catch (e) {
         console.error("Erro ao finalizar rodada:", e);
     }
-}, []);
+  }, [adedonhaSubmissions]);
 
   const endAdedonhaSession = useCallback(async (sessionId: string) => {
     await updateDoc(doc(db, 'adedonhaSessions', sessionId), { status: 'finished' });

@@ -40,14 +40,14 @@ export const DuelProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const unsubInvites = onSnapshot(collection(db, 'invitations'), snapshot => {
-      // FIX: Use forEach to iterate over snapshot documents to avoid type errors.
       const invites: DuelInvitation[] = [];
+      // FIX: Use forEach to iterate over snapshot documents to avoid type errors.
       snapshot.forEach(d => invites.push({ id: d.id, ...d.data() } as DuelInvitation));
       setInvitations(invites);
     });
     const unsubDuels = onSnapshot(collection(db, 'duels'), snapshot => {
-      // FIX: Use forEach to iterate over snapshot documents to avoid type errors.
       const duels: DuelState[] = [];
+      // FIX: Use forEach to iterate over snapshot documents to avoid type errors.
       snapshot.forEach(d => duels.push({ id: d.id, ...d.data() } as DuelState));
       setDuelStates(duels);
     });

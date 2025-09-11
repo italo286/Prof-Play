@@ -41,8 +41,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true);
     const usersCollection = collection(db, 'users');
     const unsubscribe = onSnapshot(usersCollection, (snapshot) => {
-        // FIX: Use forEach to iterate over snapshot documents, as '.docs' was causing a type error.
         const profiles: UserProfile[] = [];
+        // FIX: Use forEach to iterate over snapshot documents. .map() does not modify the array in place.
         snapshot.forEach(doc => profiles.push(doc.data() as UserProfile));
 
         const storedUserName = sessionStorage.getItem(CURRENT_USER_STORAGE_KEY);
