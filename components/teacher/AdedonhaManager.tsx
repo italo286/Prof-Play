@@ -13,6 +13,10 @@ const CountdownTimer: React.FC<{ startTime: any, duration: number }> = ({ startT
     const [timeLeft, setTimeLeft] = useState(duration);
 
     useEffect(() => {
+        setTimeLeft(duration);
+    }, [duration]);
+
+    useEffect(() => {
         const serverStartTime = getJsDateFromTimestamp(startTime)?.getTime();
         if (!serverStartTime) return;
         const interval = setInterval(() => {

@@ -169,7 +169,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
                 const updatedStat = { ...oldStat, foundCombinations: [...oldStat.foundCombinations, combination].sort() };
                 if (updatedStat.foundCombinations.length >= challenge.totalCombinations) {
                     updatedStat.isComplete = true;
-                    if (!updatedStat.completionTimestamp) updatedStat.completionTimestamp = serverTimestamp();
+                    if (!updatedStat.completionTimestamp) updatedStat.completionTimestamp = new Date();
                 }
                 newStats = [...existingStats];
                 newStats[statIndex] = updatedStat;
@@ -177,7 +177,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
                 const newStat: CombinacaoTotalStat = { challengeId, foundCombinations: [combination], isComplete: false };
                 if (newStat.foundCombinations.length >= challenge.totalCombinations) {
                     newStat.isComplete = true;
-                    newStat.completionTimestamp = serverTimestamp();
+                    newStat.completionTimestamp = new Date();
                 }
                 newStats = [...existingStats, newStat];
             }
