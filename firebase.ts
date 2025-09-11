@@ -1,5 +1,6 @@
-// FIX: Corrected import path for initializeApp to "firebase/app" for Firebase v9+ modular SDK.
-import { initializeApp } from "firebase/app";
+// FIX: The error "Module '"firebase/app"' has no exported member 'initializeApp'" suggests that for this project's
+// Firebase version, initializeApp is exported from the root 'firebase' package instead of 'firebase/app'.
+import { initializeApp } from "firebase";
 import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
 
 // --- CONFIGURAÇÃO DO FIREBASE ---

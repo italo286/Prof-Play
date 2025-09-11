@@ -96,9 +96,9 @@ const AdedonhaSessionView: React.FC<{ session: AdedonhaSession }> = ({ session }
                     <h3 className="text-lg font-bold text-cyan-300 mb-2">Avaliar Respostas</h3>
                     <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
                         {adedonhaSubmissions.map(sub => (
-                            <div key={sub.id} className="p-2 bg-slate-800 rounded grid grid-cols-3 items-center gap-2">
-                                <span className="font-semibold truncate col-span-1">{sub.studentName}: <span className="italic text-slate-300">{sub.answer || '(vazio)'}</span></span>
-                                <div className="col-span-2 flex justify-end items-center gap-1">
+                            <div key={sub.id} className="p-2 bg-slate-800 rounded flex items-center justify-between gap-4">
+                                <span className="font-semibold flex-grow">{sub.studentName}: <span className="italic text-slate-300">{sub.answer || '(vazio)'}</span></span>
+                                <div className="flex-shrink-0 flex items-center gap-1">
                                     {[0, 5, 10].map(score => (
                                         <button key={score} onClick={() => updateSubmissionScore(sub.id, score)}
                                                 className={`w-10 h-8 rounded text-xs font-bold ${sub.finalScore === score ? 'bg-sky-500' : 'bg-slate-600 hover:bg-slate-500'}`}>

@@ -446,17 +446,16 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const roundRef = doc(db, 'adedonhaRounds', roundId);
 
     try {
-        // Fetch the latest submissions directly, BEFORE the transaction, to avoid using stale state.
-        const submissionsQuery = query(collection(db, 'adedonhaSubmissions'), where('roundId', '==', roundId));
-        const submissionsSnapshot = await getDocs(submissionsQuery);
-        
-        const currentSubmissions: AdedonhaSubmission[] = [];
-        submissionsSnapshot.forEach(doc => {
-            currentSubmissions.push(doc.data() as AdedonhaSubmission);
-        });
-
-        // Use a transaction to atomically read the session and then write all updates.
         await runTransaction(db, async (transaction) => {
+            // Fetch submissions inside the transaction's callback to ensure data is not stale on retries.
+            const submissionsQuery = query(collection(db, 'adedonhaSubmissions'), where('roundId', '==', roundId));
+            const submissionsSnapshot = await getDocs(submissionsQuery);
+            
+            const currentSubmissions: AdedonhaSubmission[] = [];
+            submissionsSnapshot.forEach(doc => {
+                currentSubmissions.push(doc.data() as AdedonhaSubmission);
+            });
+
             const sessionDoc = await transaction.get(sessionRef);
             if (!sessionDoc.exists()) {
                 throw new Error("Sessão não encontrada!");
@@ -465,12 +464,10 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             const sessionData = sessionDoc.data() as AdedonhaSession;
             const newScores = { ...sessionData.scores };
 
-            // Calculate new total scores based on the freshly fetched submissions for this round.
             currentSubmissions.forEach(sub => {
                 newScores[sub.studentName] = (newScores[sub.studentName] || 0) + sub.finalScore;
             });
             
-            // Update the session scores and set the round status to 'finished' within the transaction.
             transaction.update(sessionRef, { scores: newScores });
             transaction.update(roundRef, { status: 'finished' });
         });
