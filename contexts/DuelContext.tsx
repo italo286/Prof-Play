@@ -1,7 +1,8 @@
 import React, { createContext, useState, useEffect, useCallback, useContext } from 'react';
 import { db } from '../firebase';
 // FIX: Corrected Firebase Firestore imports for v8 namespaced API.
-import firebase from 'firebase/app';
+// FIX: Use compat import for Firebase v8 syntax.
+import firebase from 'firebase/compat/app';
 import type { DuelInvitation, DuelState, DuelableGameMode, DuelPasswordPlayerState, DuelPlayer } from '../types';
 import { generateDuelChallenges, TOTAL_CHALLENGES } from '../data/duel';
 import { AuthContext } from './AuthContext';

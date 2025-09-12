@@ -1,7 +1,8 @@
 import React, { createContext, useState, useEffect, useCallback, useContext, useMemo } from 'react';
 import { db } from '../firebase';
 // FIX: Corrected and consolidated Firebase Firestore imports for v8 namespaced API.
-import firebase from 'firebase/app';
+// FIX: Use compat import for Firebase v8 syntax.
+import firebase from 'firebase/compat/app';
 import type { UserProfile, ClassData, PasswordChallenge, AdedonhaSession, AdedonhaRound, AdedonhaSubmission, CombinacaoTotalChallenge, GarrafasChallenge } from '../types';
 import { AuthContext } from './AuthContext';
 
@@ -533,18 +534,20 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 
                 // Add or update submission
                 const subsQuery = db.collection('adedonhaSubmissions').where('roundId', '==', roundId).where('studentName', '==', user.name);
-                const subsSnapshot = await transaction.get(subsQuery);
+                const subsSnapshot = await subsQuery.get();
+                const subsDocs = await transaction.get(subsQuery);
 
-                if (subsSnapshot.empty) {
+                if (subsDocs.empty) {
                     const newSubRef = db.collection('adedonhaSubmissions').doc();
                     transaction.set(newSubRef, { roundId, studentName: user.name, answer, finalScore: 0, isValid: null });
                 } else {
-                    const subRef = subsSnapshot.docs[0].ref;
+                    const subRef = subsDocs.docs[0].ref;
                     transaction.update(subRef, { answer });
                 }
             });
         } catch (error) {
             console.error("Tapple submission failed: ", error);
+            // Optionally, handle the error to notify the user, e.g., using a state management solution.
         }
     } else { // 'simples' mode
         const existingSubmission = adedonhaSubmissions.find(s => s.roundId === roundId && s.studentName === user.name);

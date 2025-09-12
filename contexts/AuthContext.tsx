@@ -2,7 +2,8 @@ import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { db } from '../firebase';
 import type { UserProfile } from '../types';
 // FIX: Corrected Firebase Firestore imports for v8 namespaced API.
-import firebase from 'firebase/app';
+// FIX: Use compat import for Firebase v8 syntax.
+import firebase from 'firebase/compat/app';
 
 
 const CURRENT_USER_STORAGE_KEY = 'prof-play-currentUser';

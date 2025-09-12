@@ -4,7 +4,8 @@ import type { UserProfile, Badge, NotificationItem, GameStat, CombinacaoTotalSta
 import { ALL_BADGES_MAP } from '../data/achievements';
 import { AuthContext } from './AuthContext';
 // FIX: Corrected Firebase Firestore imports for v8 namespaced API.
-import firebase from 'firebase/app';
+// FIX: Use compat import for Firebase v8 syntax.
+import firebase from 'firebase/compat/app';
 
 
 // --- Leveling Logic ---

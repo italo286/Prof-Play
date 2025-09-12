@@ -1,6 +1,7 @@
 // FIX: The firebase v9 modular API calls were causing errors. Switched to the v8 namespaced API.
-import firebase from "firebase/app";
-import "firebase/firestore";
+// FIX: Use compat imports for Firebase v8 syntax.
+import firebase from "firebase/compat/app";
+import "firebase/compat/firestore";
 
 
 // --- CONFIGURAÇÃO DO FIREBASE ---
