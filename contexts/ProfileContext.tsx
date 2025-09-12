@@ -6,6 +6,8 @@ import { AuthContext } from './AuthContext';
 // FIX: Corrected Firebase Firestore imports for v8 namespaced API.
 // FIX: Use compat import for Firebase v8 syntax.
 import firebase from 'firebase/compat/app';
+// FIX: Added missing firestore import for side-effects, enabling full v8 API compatibility for types and FieldValue.
+import 'firebase/compat/firestore';
 
 
 // --- Leveling Logic ---

@@ -3,6 +3,8 @@ import { db } from '../firebase';
 // FIX: Corrected and consolidated Firebase Firestore imports for v8 namespaced API.
 // FIX: Use compat import for Firebase v8 syntax.
 import firebase from 'firebase/compat/app';
+// FIX: Added missing firestore import for side-effects, enabling full v8 API compatibility for types and FieldValue.
+import 'firebase/compat/firestore';
 import type { UserProfile, ClassData, PasswordChallenge, AdedonhaSession, AdedonhaRound, AdedonhaSubmission, CombinacaoTotalChallenge, GarrafasChallenge } from '../types';
 import { AuthContext } from './AuthContext';
 
@@ -47,7 +49,7 @@ interface GameDataContextType {
   startAdedonhaRound: (sessionId: string, theme: string, letter: string, duration: number) => Promise<void>;
   endAdedonhaRoundForScoring: (roundId: string) => Promise<void>;
   updateSubmissionScore: (submissionId: string, newScore: number) => Promise<void>;
-  finalizeRound: (sessionId: string, roundId: string) => Promise<void>;
+  finalizeRound: (sessionId: string, roundId: string, submissions: AdedonhaSubmission[]) => Promise<void>;
   endAdedonhaSession: (sessionId: string) => Promise<void>;
   createGarrafasChallenge: (challengeData: Omit<GarrafasChallenge, 'id' | 'creatorName' | 'createdAt' | 'status' | 'unlockedTimestamp'>) => Promise<{ status: 'success' | 'error', message?: string }>;
   deleteGarrafasChallenge: (challengeId: string) => Promise<void>;
@@ -437,15 +439,10 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     await db.doc(`adedonhaSubmissions/${subId}`).update({ finalScore: score, isValid: score > 0 });
   }, []);
 
-  const finalizeRound = useCallback(async (sessionId: string, roundId: string) => {
-    // FIX: Switched to v8 syntax
+  const finalizeRound = useCallback(async (sessionId: string, roundId: string, submissions: AdedonhaSubmission[]) => {
     const sessionRef = db.doc(`adedonhaSessions/${sessionId}`);
     const roundRef = db.doc(`adedonhaRounds/${roundId}`);
-
     try {
-        const submissionsQuery = db.collection('adedonhaSubmissions').where('roundId', '==', roundId);
-        const submissionsSnapshot = await submissionsQuery.get();
-
         await db.runTransaction(async (transaction) => {
             const sessionDoc = await transaction.get(sessionRef);
             if (!sessionDoc.exists) throw new Error("Sessão não encontrada!");
@@ -453,9 +450,10 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             const sessionData = sessionDoc.data() as AdedonhaSession;
             const newScores = { ...sessionData.scores };
             
-            submissionsSnapshot.forEach(doc => {
-                 const sub = doc.data() as AdedonhaSubmission;
-                 newScores[sub.studentName] = (newScores[sub.studentName] || 0) + sub.finalScore;
+            submissions.forEach(sub => {
+                 if (sub.roundId === roundId) {
+                    newScores[sub.studentName] = (newScores[sub.studentName] || 0) + sub.finalScore;
+                 }
             });
             
             transaction.update(sessionRef, { scores: newScores });
@@ -516,7 +514,6 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         const firstLetter = answer.trim().charAt(0).toUpperCase();
         if (!firstLetter) return; // Don't submit empty answers
 
-        // FIX: Switched to v8 syntax
         const roundRef = db.doc(`adedonhaRounds/${roundId}`);
         try {
             await db.runTransaction(async (transaction) => {
@@ -525,16 +522,14 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 
                 const roundData = roundDoc.data() as AdedonhaRound;
                 if (roundData.usedLetters?.includes(firstLetter)) {
-                    // This error will be caught client-side first, but this prevents race conditions.
                     throw new Error("Letter already used");
                 }
                 
-                // Add letter to round
-                transaction.update(roundRef, { usedLetters: firebase.firestore.FieldValue.arrayUnion(firstLetter) });
+                // Manually update the array instead of using arrayUnion for robustness
+                const newUsedLetters = [...(roundData.usedLetters || []), firstLetter];
+                transaction.update(roundRef, { usedLetters: newUsedLetters });
                 
-                // Add or update submission
                 const subsQuery = db.collection('adedonhaSubmissions').where('roundId', '==', roundId).where('studentName', '==', user.name);
-                const subsSnapshot = await subsQuery.get();
                 const subsDocs = await transaction.get(subsQuery);
 
                 if (subsDocs.empty) {
@@ -547,7 +542,6 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             });
         } catch (error) {
             console.error("Tapple submission failed: ", error);
-            // Optionally, handle the error to notify the user, e.g., using a state management solution.
         }
     } else { // 'simples' mode
         const existingSubmission = adedonhaSubmissions.find(s => s.roundId === roundId && s.studentName === user.name);

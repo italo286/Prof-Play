@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
 import { GameDataContext } from '../../contexts/GameDataContext';
-import type { ClassData, AdedonhaSession } from '../../types';
+import type { ClassData, AdedonhaSession, AdedonhaSubmission } from '../../types';
 
 const getJsDateFromTimestamp = (timestamp: any): Date | null => {
     if (!timestamp) return null;
@@ -173,7 +173,7 @@ const AdedonhaSessionView: React.FC<{ session: AdedonhaSession, onEnd: (session:
                             );
                         })}
                     </div>
-                    <button onClick={() => finalizeRound(session.id, activeAdedonhaRound.id)} className="w-full mt-3 py-2 bg-green-600 font-bold rounded">Finalizar Avaliação e Pontuar</button>
+                    <button onClick={() => finalizeRound(session.id, activeAdedonhaRound.id, adedonhaSubmissions)} className="w-full mt-3 py-2 bg-green-600 font-bold rounded">Finalizar Avaliação e Pontuar</button>
                 </div>
             );
         }
