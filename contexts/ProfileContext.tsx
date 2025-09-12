@@ -3,8 +3,9 @@ import { db } from '../firebase';
 import type { UserProfile, Badge, NotificationItem, GameStat, CombinacaoTotalStat, CombinacaoTotalChallenge, GarrafasStat, GarrafasChallenge } from '../types';
 import { ALL_BADGES_MAP } from '../data/achievements';
 import { AuthContext } from './AuthContext';
-// FIX: Corrected Firebase Firestore imports for v9+ modular SDK.
-import { doc, updateDoc, serverTimestamp, runTransaction, getDoc } from 'firebase/firestore';
+// FIX: Corrected Firebase Firestore imports for v8 namespaced API.
+import firebase from 'firebase/app';
+
 
 // --- Leveling Logic ---
 const BASE_XP = 100;
@@ -64,7 +65,8 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
   
   const addXp = useCallback(async (amount: number) => {
     if (!user) return;
-    const userRef = doc(db, 'users', user.name);
+    // FIX: Switched to v8 syntax for doc()
+    const userRef = db.doc(`users/${user.name}`);
 
     const newXp = user.xp + amount;
     let newLevel = user.level;
@@ -91,7 +93,8 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       });
     }
     
-    await updateDoc(userRef, { xp: newXp, level: newLevel, badges: newBadges });
+    // FIX: Switched to v8 syntax for updateDoc()
+    await userRef.update({ xp: newXp, level: newLevel, badges: newBadges });
 
   }, [addNotification, checkAndAwardLevelBadges, user]);
 
@@ -114,8 +117,9 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
     
     if(!user.badges.includes(badgeId)) updatedBadges.push(badgeId);
 
-    const userRef = doc(db, 'users', user.name);
-    await updateDoc(userRef, { badges: updatedBadges });
+    // FIX: Switched to v8 syntax for doc() and updateDoc()
+    const userRef = db.doc(`users/${user.name}`);
+    await userRef.update({ badges: updatedBadges });
     
     addNotification({ type: 'badge', payload: badgeInfo });
 
@@ -123,7 +127,8 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const logAttempt = useCallback(async (gameId: string, success: boolean, firstTry: boolean) => {
       if (!user) return;
-      const userRef = doc(db, 'users', user.name);
+      // FIX: Switched to v8 syntax for doc()
+      const userRef = db.doc(`users/${user.name}`);
       
       const gameStats = user.gameStats || {};
       const currentStats: GameStat = gameStats[gameId] || { successFirstTry: 0, successOther: 0, errors: 0 };
@@ -133,32 +138,37 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
           else currentStats.successOther++;
 
           if (gameId.startsWith('password_unlock_') && currentStats.successFirstTry + currentStats.successOther === 1) {
-              currentStats.completionTimestamp = serverTimestamp();
+              // FIX: Switched to v8 syntax for serverTimestamp()
+              currentStats.completionTimestamp = firebase.firestore.FieldValue.serverTimestamp();
           }
 
       } else {
           currentStats.errors++;
       }
       
-      await updateDoc(userRef, {
+      // FIX: Switched to v8 syntax for updateDoc()
+      await userRef.update({
         [`gameStats.${gameId}`]: currentStats
       });
   }, [user]);
 
   const logCombinacaoTotalAttempt = useCallback(async (challengeId: string, combination: string) => {
     if (!user) return;
-    const userRef = doc(db, 'users', user.name);
-    const challengeDocRef = doc(db, 'combinacao_total_challenges', challengeId);
+    // FIX: Switched to v8 syntax for doc()
+    const userRef = db.doc(`users/${user.name}`);
+    const challengeDocRef = db.doc(`combinacao_total_challenges/${challengeId}`);
     
     try {
-        const challengeDoc = await getDoc(challengeDocRef);
-        if (!challengeDoc.exists()) return;
+        // FIX: Switched to v8 syntax for getDoc()
+        const challengeDoc = await challengeDocRef.get();
+        if (!challengeDoc.exists) return;
         const challenge = challengeDoc.data() as CombinacaoTotalChallenge;
         if (!challenge) return;
 
-        await runTransaction(db, async (transaction) => {
+        // FIX: Switched to v8 syntax for runTransaction()
+        await db.runTransaction(async (transaction) => {
             const userDoc = await transaction.get(userRef);
-            if (!userDoc.exists()) return;
+            if (!userDoc.exists) return;
 
             const profile = userDoc.data() as UserProfile;
             const existingStats = profile.combinacaoTotalStats || [];
@@ -192,12 +202,14 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const logGarrafasAttempt = useCallback(async (challengeId: string, attempts: number, isCorrect: boolean) => {
     if (!user) return;
-    const userRef = doc(db, 'users', user.name);
+    // FIX: Switched to v8 syntax for doc()
+    const userRef = db.doc(`users/${user.name}`);
 
     try {
-        await runTransaction(db, async (transaction) => {
+        // FIX: Switched to v8 syntax for runTransaction()
+        await db.runTransaction(async (transaction) => {
             const userDoc = await transaction.get(userRef);
-            if (!userDoc.exists()) return;
+            if (!userDoc.exists) return;
 
             const profile = userDoc.data() as UserProfile;
             const existingStats = profile.garrafasStats || [];
@@ -210,7 +222,8 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
                 const updatedStat = { ...oldStat, attempts };
                  if (isCorrect) {
                     updatedStat.isComplete = true;
-                    updatedStat.completionTimestamp = serverTimestamp();
+                    // FIX: Switched to v8 syntax for serverTimestamp()
+                    updatedStat.completionTimestamp = firebase.firestore.FieldValue.serverTimestamp();
                 }
                 newStats = [...existingStats];
                 newStats[statIndex] = updatedStat;
@@ -218,7 +231,8 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
                 const newStat: GarrafasStat = { challengeId, attempts, isComplete: false };
                 if (isCorrect) {
                     newStat.isComplete = true;
-                    newStat.completionTimestamp = serverTimestamp();
+                    // FIX: Switched to v8 syntax for serverTimestamp()
+                    newStat.completionTimestamp = firebase.firestore.FieldValue.serverTimestamp();
                 }
                 newStats = [...existingStats, newStat];
             }
@@ -231,8 +245,9 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const updateUserProfile = useCallback(async (data: Partial<UserProfile>) => {
     if (!user) return;
-    const userRef = doc(db, 'users', user.name);
-    await updateDoc(userRef, data);
+    // FIX: Switched to v8 syntax for doc() and updateDoc()
+    const userRef = db.doc(`users/${user.name}`);
+    await userRef.update(data);
   }, [user]);
 
   return (

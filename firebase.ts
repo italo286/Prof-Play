@@ -1,7 +1,7 @@
-import { initializeApp } from "firebase/app";
-// FIX: The initializeFirestore, persistentLocalCache, and memoryLocalCache exports are deprecated.
-// Use getFirestore and enableIndexedDbPersistence for Firebase v9+ modular SDK.
-import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
+// FIX: The firebase v9 modular API calls were causing errors. Switched to the v8 namespaced API.
+import firebase from "firebase/app";
+import "firebase/firestore";
+
 
 // --- CONFIGURAÇÃO DO FIREBASE ---
 //
@@ -41,14 +41,17 @@ const firebaseConfig = {
 
 
 // Inicializa o Firebase
-const app = initializeApp(firebaseConfig);
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+}
+
 
 // Exporta a instância do Firestore para ser usada em outros lugares no aplicativo
 // Habilita a persistência offline para uma melhor experiência do usuário
-const db = getFirestore(app);
-// FIX: Use enableIndexedDbPersistence() to enable offline capabilities.
-// The SDK will fall back to in-memory persistence if IndexedDB is not available or fails.
-enableIndexedDbPersistence(db)
+const db = firebase.firestore();
+
+// FIX: Switched to v8 `enablePersistence` method.
+db.enablePersistence()
   .catch((err) => {
     if (err.code === 'failed-precondition') {
       console.warn('Firestore persistence failed: Multiple tabs open. Persistence can only be enabled in one tab at a time.');

@@ -1,7 +1,7 @@
 import React, { createContext, useState, useEffect, useCallback, useContext } from 'react';
 import { db } from '../firebase';
-// FIX: Corrected Firebase Firestore imports for v9+ modular SDK.
-import { doc, collection, onSnapshot, addDoc, updateDoc, getDoc, deleteDoc, runTransaction, serverTimestamp, setDoc, arrayUnion } from 'firebase/firestore';
+// FIX: Corrected Firebase Firestore imports for v8 namespaced API.
+import firebase from 'firebase/app';
 import type { DuelInvitation, DuelState, DuelableGameMode, DuelPasswordPlayerState, DuelPlayer } from '../types';
 import { generateDuelChallenges, TOTAL_CHALLENGES } from '../data/duel';
 import { AuthContext } from './AuthContext';
@@ -40,12 +40,13 @@ export const DuelProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [activeDuel, setActiveDuel] = useState<DuelState | null>(null);
 
   useEffect(() => {
-    const unsubInvites = onSnapshot(collection(db, 'invitations'), snapshot => {
+    // FIX: Switched to v8 syntax
+    const unsubInvites = db.collection('invitations').onSnapshot(snapshot => {
       const invites: DuelInvitation[] = [];
       snapshot.forEach(d => invites.push({ id: d.id, ...d.data() } as DuelInvitation));
       setInvitations(invites);
     });
-    const unsubDuels = onSnapshot(collection(db, 'duels'), snapshot => {
+    const unsubDuels = db.collection('duels').onSnapshot(snapshot => {
       const duels: DuelState[] = [];
       snapshot.forEach(d => duels.push({ id: d.id, ...d.data() } as DuelState));
       setDuelStates(duels);
@@ -85,28 +86,30 @@ export const DuelProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const sendDuelInvitation = useCallback(async (to: string, gameMode: DuelableGameMode) => {
     if (!user) return;
     const duelId = `duel-${Date.now()}`;
+    // FIX: Switched to v8 syntax
     const newInvitation = { 
         from: user.name, 
         to, 
         status: 'pending', 
         duelId, 
         gameMode,
-        createdAt: serverTimestamp() 
+        createdAt: firebase.firestore.FieldValue.serverTimestamp() 
     };
-    await addDoc(collection(db, 'invitations'), newInvitation);
+    await db.collection('invitations').add(newInvitation);
   }, [user]);
 
   const answerDuelInvitation = useCallback(async (invitationId: string, answer: 'accepted' | 'declined') => {
-    const inviteRef = doc(db, 'invitations', invitationId);
-    const inviteDoc = await getDoc(inviteRef);
-    if (!inviteDoc.exists()) return;
+    // FIX: Switched to v8 syntax
+    const inviteRef = db.doc(`invitations/${invitationId}`);
+    const inviteDoc = await inviteRef.get();
+    if (!inviteDoc.exists) return;
     const invitation = inviteDoc.data() as DuelInvitation;
     if (answer === 'declined') {
-        await updateDoc(inviteRef, { status: 'declined' });
+        await inviteRef.update({ status: 'declined' });
         return;
     }
     // Create Duel
-    await updateDoc(inviteRef, { status: 'accepted' });
+    await inviteRef.update({ status: 'accepted' });
     const challenges = generateDuelChallenges(invitation.gameMode);
     const players: [DuelPlayer, DuelPlayer] = [
         { name: invitation.from, progress: 0, timeFinished: null },
@@ -126,19 +129,21 @@ export const DuelProvider: React.FC<{ children: React.ReactNode }> = ({ children
             [invitation.to]: { password: '', rules: [], digitCount: 0, guesses: [], ready: false }
         }
     }
-    await setDoc(doc(db, 'duels', invitation.duelId), newDuel);
+    await db.doc(`duels/${invitation.duelId}`).set(newDuel);
   }, []);
 
   const cancelDuelInvitation = useCallback(async (invitationId: string) => {
-    await deleteDoc(doc(db, 'invitations', invitationId));
+    // FIX: Switched to v8 syntax
+    await db.doc(`invitations/${invitationId}`).delete();
   }, []);
 
   const updateDuelProgress = useCallback(async (duelId: string, progress: number) => {
     if (!user) return;
-    const duelRef = doc(db, 'duels', duelId);
-    await runTransaction(db, async (transaction) => {
+    // FIX: Switched to v8 syntax
+    const duelRef = db.doc(`duels/${duelId}`);
+    await db.runTransaction(async (transaction) => {
         const doc = await transaction.get(duelRef);
-        if (!doc.exists()) return;
+        if (!doc.exists) return;
         const duel = doc.data() as DuelState;
         const playerIndex = duel.players.findIndex(p => p.name === user.name);
         if (playerIndex > -1) {
@@ -151,10 +156,11 @@ export const DuelProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const finishDuel = useCallback(async (duelId: string, timeFinished: number) => {
     if (!user) return;
-    const duelRef = doc(db, 'duels', duelId);
-    await runTransaction(db, async (transaction) => {
+    // FIX: Switched to v8 syntax
+    const duelRef = db.doc(`duels/${duelId}`);
+    await db.runTransaction(async (transaction) => {
         const doc = await transaction.get(duelRef);
-        if (!doc.exists()) return;
+        if (!doc.exists) return;
         const duel = doc.data() as DuelState;
         const playerIndex = duel.players.findIndex(p => p.name === user.name);
         if (playerIndex === -1 || duel.players[playerIndex].timeFinished !== null) return;
@@ -192,40 +198,43 @@ export const DuelProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const handleDuelError = useCallback(async (duelId: string, progressToSet: number) => {
      if (!user) return;
-    const duelRef = doc(db, 'duels', duelId);
-    const docSnap = await getDoc(duelRef);
-    if (!docSnap.exists()) return;
+    // FIX: Switched to v8 syntax
+    const duelRef = db.doc(`duels/${duelId}`);
+    const docSnap = await duelRef.get();
+    if (!docSnap.exists) return;
     const duel = docSnap.data() as DuelState;
     const playerIndex = duel.players.findIndex(p => p.name === user.name);
     if (playerIndex > -1) {
         const newPlayers = [...duel.players];
         newPlayers[playerIndex].progress = progressToSet;
-        await updateDoc(duelRef, { players: newPlayers });
+        await duelRef.update({ players: newPlayers });
     }
   }, [user]);
 
   const setDuelPassword = useCallback(async (duelId: string, passwordData: any) => {
     if (!user) return;
-    const duelRef = doc(db, 'duels', duelId);
+    // FIX: Switched to v8 syntax
+    const duelRef = db.doc(`duels/${duelId}`);
     const key = `passwordGameState.${user.name}`;
-    await updateDoc(duelRef, {
+    await duelRef.update({
         [key]: { ...passwordData, guesses: [], ready: true }
     });
     // Check if both are ready to start
-    const duelDoc = await getDoc(duelRef);
+    const duelDoc = await duelRef.get();
     const duel = duelDoc.data() as DuelState;
     const opponentName = duel.players.find(p => p.name !== user.name)?.name;
     if (opponentName && duel.passwordGameState?.[opponentName].ready) {
-        await updateDoc(duelRef, { status: 'playing' });
+        await duelRef.update({ status: 'playing' });
     }
   }, [user]);
   
   const submitDuelGuess = useCallback(async (duelId: string, guess: string) => {
     if (!user) return;
-    const duelRef = doc(db, 'duels', duelId);
-    await runTransaction(db, async (transaction) => {
+    // FIX: Switched to v8 syntax
+    const duelRef = db.doc(`duels/${duelId}`);
+    await db.runTransaction(async (transaction) => {
         const doc = await transaction.get(duelRef);
-        if (!doc.exists()) return;
+        if (!doc.exists) return;
         const duel = doc.data() as DuelState;
         if (!duel.passwordGameState) return;
 
@@ -236,7 +245,7 @@ export const DuelProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const correctCount = calculatePasswordGuess(guess, opponentState.password);
         
         const selfKey = `passwordGameState.${user.name}.guesses`;
-        const newGuesses = arrayUnion({ guess, correctCount });
+        const newGuesses = firebase.firestore.FieldValue.arrayUnion({ guess, correctCount });
 
         if (guess === opponentState.password) {
             transaction.update(duelRef, { [selfKey]: newGuesses, winner: user.name, status: 'finished' });

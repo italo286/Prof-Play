@@ -61,7 +61,7 @@ const AdedonhaSessionView: React.FC<{ session: AdedonhaSession, onEnd: (session:
     }, [activeAdedonhaRound, endAdedonhaRoundForScoring]);
 
     const handleStartRound = () => {
-        if (theme.trim() && letter.trim()) {
+        if (theme.trim() && (session.type === 'tapple' || letter.trim())) {
             startAdedonhaRound(session.id, theme.trim(), letter.trim().toUpperCase(), duration);
             setTheme('');
             setLetter('');
@@ -110,10 +110,12 @@ const AdedonhaSessionView: React.FC<{ session: AdedonhaSession, onEnd: (session:
                     <h3 className="text-lg font-bold text-cyan-300 mb-2">Iniciar Nova Rodada</h3>
                     <div className="space-y-3">
                         <input type="text" value={theme} onChange={e => setTheme(e.target.value)} placeholder="Tema (Ex: Fruta)" className="w-full p-2 bg-slate-800 rounded border border-slate-600"/>
-                        <div className="flex gap-2">
-                           <input type="text" value={letter} onChange={e => setLetter(e.target.value)} placeholder="Letra" maxLength={1} className="flex-grow p-2 bg-slate-800 rounded border border-slate-600"/>
-                           <button onClick={handleRandomLetter} className="px-3 bg-sky-600 hover:bg-sky-700 rounded" title="Sortear Letra"><i className="fas fa-random"></i></button>
-                        </div>
+                        {session.type === 'simples' && (
+                            <div className="flex gap-2">
+                               <input type="text" value={letter} onChange={e => setLetter(e.target.value)} placeholder="Letra" maxLength={1} className="flex-grow p-2 bg-slate-800 rounded border border-slate-600"/>
+                               <button onClick={handleRandomLetter} className="px-3 bg-sky-600 hover:bg-sky-700 rounded" title="Sortear Letra"><i className="fas fa-random"></i></button>
+                            </div>
+                        )}
                         <div>
                             <label className="text-sm text-slate-400">Duração: {duration}s</label>
                             <input type="range" min="15" max="60" step="5" value={duration} onChange={e => setDuration(Number(e.target.value))} className="w-full"/>
@@ -128,7 +130,10 @@ const AdedonhaSessionView: React.FC<{ session: AdedonhaSession, onEnd: (session:
                 <div className="text-center bg-slate-700 p-6 rounded-lg shadow-inner">
                     <h3 className="text-lg font-bold text-cyan-300 mb-2">Rodada em Andamento</h3>
                     <CountdownTimer key={activeAdedonhaRound.id} startTime={activeAdedonhaRound.startTime} duration={activeAdedonhaRound.duration} />
-                    <p>Tema: <span className="font-bold">{activeAdedonhaRound.theme}</span> | Letra: <span className="font-bold">{activeAdedonhaRound.letter}</span></p>
+                    <p>Tema: <span className="font-bold">{activeAdedonhaRound.theme}</span> 
+                        {session.type === 'simples' && ` | Letra: `}
+                        {session.type === 'simples' && <span className="font-bold">{activeAdedonhaRound.letter}</span>}
+                    </p>
                     <div className="mt-4">
                         <h4 className="text-sm font-bold text-slate-300 mb-2">Submissões ({adedonhaSubmissions.length}/{studentsInClass.length})</h4>
                         <div className="flex flex-wrap gap-2 justify-center">
@@ -157,7 +162,7 @@ const AdedonhaSessionView: React.FC<{ session: AdedonhaSession, onEnd: (session:
                                         <span className="font-semibold flex-grow">{sub.studentName}: <span className="italic text-slate-300">{sub.answer || '(vazio)'}</span></span>
                                     </div>
                                     <div className="flex-shrink-0 flex items-center gap-1">
-                                        {[0, 5, 10].map(score => (
+                                        {[0, 10].map(score => (
                                             <button key={score} onClick={() => updateSubmissionScore(sub.id, score)}
                                                     className={`w-10 h-8 rounded text-xs font-bold ${sub.finalScore === score ? 'bg-sky-500' : 'bg-slate-600 hover:bg-slate-500'}`}>
                                                 {score}
@@ -178,7 +183,7 @@ const AdedonhaSessionView: React.FC<{ session: AdedonhaSession, onEnd: (session:
     return (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 rounded-lg">
             <div className="md:col-span-1 bg-slate-900/70 p-4 rounded-lg shadow-lg">
-                <h3 className="text-lg font-bold text-cyan-300 mb-2">Placar da Partida</h3>
+                <h3 className="text-lg font-bold text-cyan-300 mb-2">Placar da Partida ({session.type === 'tapple' ? 'Tapple' : 'Simples'})</h3>
                 <div className="space-y-2 max-h-[26rem] overflow-y-auto pr-2">
                     {Object.entries(session.scores).sort(([,a],[,b]) => b - a).map(([name, score]) => {
                         const avatar = avatarMap.get(name);
@@ -210,7 +215,6 @@ export const AdedonhaManager: React.FC<{ selectedClass: ClassData }> = ({ select
     const [finishedSession, setFinishedSession] = useState<AdedonhaSession | null>(null);
 
     const sessionToRender = useMemo(() => {
-        // Only show the session if it belongs to the currently selected class
         if(activeAdedonhaSession && activeAdedonhaSession.classCode === selectedClass.classCode) {
             return activeAdedonhaSession;
         }
@@ -220,10 +224,10 @@ export const AdedonhaManager: React.FC<{ selectedClass: ClassData }> = ({ select
         return null;
     }, [activeAdedonhaSession, finishedSession, selectedClass]);
 
-    const handleStartSession = async () => {
+    const handleStartSession = async (type: 'simples' | 'tapple') => {
         if (selectedClass) {
             setFinishedSession(null);
-            await createAdedonhaSession(selectedClass.classCode);
+            await createAdedonhaSession(selectedClass.classCode, type);
         }
     };
     
@@ -236,7 +240,6 @@ export const AdedonhaManager: React.FC<{ selectedClass: ClassData }> = ({ select
         return <AdedonhaSessionView session={sessionToRender} onEnd={handleEndSession} onGoBackToLobby={() => setFinishedSession(null)} />;
     }
     
-    // Show start button if another session (for another class) is active for this teacher
     if (activeAdedonhaSession) {
          return (
             <div className="bg-slate-900/70 p-6 rounded-lg text-center">
@@ -248,10 +251,15 @@ export const AdedonhaManager: React.FC<{ selectedClass: ClassData }> = ({ select
     return (
         <div className="bg-slate-900/70 p-6 rounded-lg text-center">
             <h2 className="text-xl font-bold text-sky-300 mb-4">Iniciar Jogo de Adedonha</h2>
-            <p className="text-slate-300 mb-4">Iniciar uma nova partida para a turma <span className="font-bold">{selectedClass.className}</span>.</p>
-            <button onClick={handleStartSession} className="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:bg-slate-500">
-                <i className="fas fa-play mr-2"></i>Iniciar Sessão
-            </button>
+            <p className="text-slate-300 mb-4">Selecione o modo de jogo para a turma <span className="font-bold">{selectedClass.className}</span>.</p>
+            <div className="flex flex-col md:flex-row gap-4 justify-center">
+                <button onClick={() => handleStartSession('simples')} className="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700">
+                    <i className="fas fa-pen-alt mr-2"></i>Iniciar Adedonha Simples
+                </button>
+                 <button onClick={() => handleStartSession('tapple')} className="px-6 py-3 bg-sky-600 text-white font-semibold rounded-lg hover:bg-sky-700">
+                    <i className="fas fa-font mr-2"></i>Iniciar Adedonha Tapple
+                </button>
+            </div>
         </div>
     );
 };

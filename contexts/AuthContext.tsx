@@ -1,8 +1,9 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { db } from '../firebase';
 import type { UserProfile } from '../types';
-// FIX: Corrected Firebase Firestore imports for v9+ modular SDK.
-import { doc, getDoc, setDoc, collection, onSnapshot, query, where, deleteDoc, serverTimestamp, getDocs } from 'firebase/firestore';
+// FIX: Corrected Firebase Firestore imports for v8 namespaced API.
+import firebase from 'firebase/app';
+
 
 const CURRENT_USER_STORAGE_KEY = 'prof-play-currentUser';
 
@@ -40,8 +41,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     setLoading(true);
-    const usersCollection = collection(db, 'users');
-    const unsubscribe = onSnapshot(usersCollection, (snapshot) => {
+    // FIX: Switched to v8 syntax for collection and onSnapshot
+    const usersCollection = db.collection('users');
+    const unsubscribe = usersCollection.onSnapshot((snapshot) => {
         const profiles: UserProfile[] = [];
         snapshot.forEach(doc => profiles.push(doc.data() as UserProfile));
 
@@ -49,8 +51,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (storedUserName) {
             const userProfile = profiles.find(p => p.name === storedUserName);
             if (userProfile) {
-                const presenceRef = doc(db, 'presence', userProfile.name);
-                setDoc(presenceRef, { lastSeen: serverTimestamp() });
+                // FIX: Switched to v8 syntax for doc and setDoc
+                const presenceRef = db.doc(`presence/${userProfile.name}`);
+                presenceRef.set({ lastSeen: firebase.firestore.FieldValue.serverTimestamp() });
                 setUser(userProfile);
             } else {
                 sessionStorage.removeItem(CURRENT_USER_STORAGE_KEY);
@@ -68,9 +71,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user) return;
 
     const heartbeatInterval = setInterval(() => {
-        const presenceRef = doc(db, 'presence', user.name);
-        setDoc(presenceRef, {
-            lastSeen: serverTimestamp()
+        // FIX: Switched to v8 syntax for doc and setDoc
+        const presenceRef = db.doc(`presence/${user.name}`);
+        presenceRef.set({
+            lastSeen: firebase.firestore.FieldValue.serverTimestamp()
         });
     }, 60000); // Update every 60 seconds
 
@@ -81,8 +85,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const handleBeforeUnload = () => {
         if (user) {
-            const presenceRef = doc(db, 'presence', user.name);
-            deleteDoc(presenceRef);
+            // FIX: Switched to v8 syntax for doc and deleteDoc
+            const presenceRef = db.doc(`presence/${user.name}`);
+            presenceRef.delete();
         }
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
@@ -92,32 +97,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user]);
 
   const login = useCallback(async (name: string, pass: string) => {
-    const userDocRef = doc(db, "users", name);
-    const userDoc = await getDoc(userDocRef);
+    // FIX: Switched to v8 syntax for doc and getDoc
+    const userDocRef = db.doc(`users/${name}`);
+    const userDoc = await userDocRef.get();
 
-    if (!userDoc.exists()) return 'not_found';
+    if (!userDoc.exists) return 'not_found';
     
     const profile = userDoc.data() as UserProfile;
     if (profile.password !== pass) return 'wrong_pass';
 
-    const presenceRef = doc(db, 'presence', name);
-    await setDoc(presenceRef, { lastSeen: serverTimestamp() });
+    // FIX: Switched to v8 syntax for doc, setDoc, and serverTimestamp
+    const presenceRef = db.doc(`presence/${name}`);
+    await presenceRef.set({ lastSeen: firebase.firestore.FieldValue.serverTimestamp() });
     setUser(profile);
     sessionStorage.setItem(CURRENT_USER_STORAGE_KEY, name);
     return 'success';
   }, []);
   
   const register = useCallback(async (name: string, pass: string, role: 'student' | 'teacher', classCode?: string, avatar?: string): Promise<{ status: 'success' | 'user_exists' | 'class_not_found' | 'invalid_role' | 'avatar_taken', message?: string }> => {
-    const userDocRef = doc(db, "users", name);
-    const userDoc = await getDoc(userDocRef);
-    if (userDoc.exists()) {
+    // FIX: Switched to v8 syntax for doc and getDoc
+    const userDocRef = db.doc(`users/${name}`);
+    const userDoc = await userDocRef.get();
+    if (userDoc.exists) {
       return { status: 'user_exists', message: 'Este nome de usuário já existe.' };
     }
     
     if (role === 'student') {
       if (!classCode) return { status: 'class_not_found', message: 'Código da turma é obrigatório.'}
-      const q = query(collection(db, "classes"), where("classCode", "==", classCode.toUpperCase()));
-      const classDocs = await getDocs(q);
+      // FIX: Switched to v8 syntax for query, collection, where, and getDocs
+      const q = db.collection("classes").where("classCode", "==", classCode.toUpperCase());
+      const classDocs = await q.get();
       if (classDocs.empty) {
         return { status: 'class_not_found', message: 'Código da turma inválido ou não encontrado.' };
       }
@@ -125,8 +134,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return { status: 'invalid_role', message: 'É necessário escolher um avatar.'};
       }
       
-      const studentsInClassQuery = query(collection(db, "users"), where("classCode", "==", classCode.toUpperCase()));
-      const studentsInClassSnapshot = await getDocs(studentsInClassQuery);
+      // FIX: Switched to v8 syntax for query, collection, where, and getDocs
+      const studentsInClassQuery = db.collection("users").where("classCode", "==", classCode.toUpperCase());
+      const studentsInClassSnapshot = await studentsInClassQuery.get();
       const studentsInClass = studentsInClassSnapshot.docs.map(d => d.data() as UserProfile);
 
       if (studentsInClass.some(s => s.avatar === avatar)) {
@@ -135,10 +145,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     
     const newProfile = createNewProfile(name, pass, role, classCode, avatar);
-    await setDoc(userDocRef, newProfile);
+    // FIX: Switched to v8 syntax for setDoc
+    await userDocRef.set(newProfile);
     
-    const presenceRef = doc(db, 'presence', name);
-    await setDoc(presenceRef, { lastSeen: serverTimestamp() });
+    // FIX: Switched to v8 syntax for doc, setDoc, and serverTimestamp
+    const presenceRef = db.doc(`presence/${name}`);
+    await presenceRef.set({ lastSeen: firebase.firestore.FieldValue.serverTimestamp() });
     setUser(newProfile);
     sessionStorage.setItem(CURRENT_USER_STORAGE_KEY, name);
     return { status: 'success' };
@@ -146,8 +158,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = useCallback(async () => {
       if (user) {
-          const presenceRef = doc(db, 'presence', user.name);
-          await deleteDoc(presenceRef);
+          // FIX: Switched to v8 syntax for doc and deleteDoc
+          const presenceRef = db.doc(`presence/${user.name}`);
+          await presenceRef.delete();
       }
       sessionStorage.removeItem(CURRENT_USER_STORAGE_KEY);
       setUser(null);

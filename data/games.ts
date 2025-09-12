@@ -1,5 +1,5 @@
 export interface GameInfo {
-    id: 'coordenadas-geograficas' | 'encontrar-pontos' | 'reconhecer-pontos' | 'simetria-pontos' | 'simetria-segmentos' | 'descubra-a-senha' | 'combinacao-total' | 'adedonha' | 'duelo' | 'jogo-das-garrafas';
+    id: 'coordenadas-geograficas' | 'encontrar-pontos' | 'reconhecer-pontos' | 'simetria-pontos' | 'simetria-segmentos' | 'descubra-a-senha' | 'combinacao-total' | 'adedonha-simples' | 'adedonha-tapple' | 'duelo' | 'jogo-das-garrafas';
     name: string;
     description: string;
     icon: string;
@@ -58,7 +58,8 @@ export const GAME_CATEGORIES: GameCategory[] = [
         icon: 'fa-font',
         color: 'text-green-400',
         games: [
-            { id: 'adedonha', name: 'Adedonha', description: 'Jogo de palavras em tempo real com a turma.', icon: 'fa-pen-alt', badgePrefix: 'adedonha' },
+            { id: 'adedonha-simples', name: 'Adedonha Simples', description: 'Jogo de palavras em tempo real com a turma.', icon: 'fa-pen-alt', badgePrefix: 'adedonha_simples' },
+            { id: 'adedonha-tapple', name: 'Adedonha Tapple', description: 'Responda com uma letra que ninguém usou ainda!', icon: 'fa-font', badgePrefix: 'adedonha_tapple' },
         ]
     },
     {

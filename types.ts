@@ -158,10 +158,11 @@ export interface AdedonhaRound {
   sessionId: string;
   roundNumber: number;
   theme: string;
-  letter: string;
+  letter?: string; // For 'simples' mode
   status: 'playing' | 'scoring' | 'finished';
   startTime: any; // Firebase Timestamp
   duration: number; // Duration of the round in seconds
+  usedLetters?: string[]; // For 'tapple' mode
 }
 
 export interface AdedonhaSession {
@@ -169,6 +170,7 @@ export interface AdedonhaSession {
   classCode: string;
   teacherName: string;
   status: 'active' | 'finished';
+  type: 'simples' | 'tapple';
   createdAt: any; // Firebase Timestamp
   scores: { [studentName: string]: number };
 }

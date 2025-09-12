@@ -8,6 +8,7 @@ import { SimetriaSegmentosGame } from './components/SimetriaSegmentosGame';
 import { CoordenadasGeograficasGame } from './components/CoordenadasGeograficasGame';
 import { DescubraASenhaGame } from './components/DescubraASenhaGame';
 import { AdedonhaGame } from './components/AdedonhaGame';
+import { AdedonhaTappleGame } from './components/AdedonhaTappleGame';
 import { DuelMode } from './components/DuelMode';
 import { CombinacaoTotalGame } from './components/CombinacaoTotalGame';
 import { GarrafasGame } from './components/GarrafasGame';
@@ -21,7 +22,7 @@ import { TeacherDashboard } from './components/TeacherDashboard';
 import type { UserProfile } from './types';
 import { GAME_CATEGORIES, GameCategory } from './data/games';
 
-type GameMode = 'encontrar-pontos' | 'reconhecer-pontos' | 'simetria-pontos' | 'simetria-segmentos' | 'coordenadas-geograficas' | 'descubra-a-senha' | 'duelo' | 'adedonha' | 'combinacao-total' | 'jogo-das-garrafas';
+type GameMode = 'encontrar-pontos' | 'reconhecer-pontos' | 'simetria-pontos' | 'simetria-segmentos' | 'coordenadas-geograficas' | 'descubra-a-senha' | 'duelo' | 'adedonha-simples' | 'adedonha-tapple' | 'combinacao-total' | 'jogo-das-garrafas';
 type View = 'menu' | 'profile' | 'game' | 'teacher_dashboard' | 'category';
 
 export const isModeUnlocked = (modeId: string, user: UserProfile | null) => {
@@ -29,7 +30,7 @@ export const isModeUnlocked = (modeId: string, user: UserProfile | null) => {
     if (user.role === 'teacher') return true;
 
     // These modes don't depend on a sequence
-    if (['duelo', 'adedonha', 'combinacao-total', 'descubra-a-senha', 'jogo-das-garrafas'].includes(modeId)) return true;
+    if (['duelo', 'adedonha-simples', 'adedonha-tapple', 'combinacao-total', 'descubra-a-senha', 'jogo-das-garrafas'].includes(modeId)) return true;
 
     const badges = user.badges || [];
     switch(modeId) {
@@ -155,8 +156,10 @@ const AppContent: React.FC = () => {
             return <CoordenadasGeograficasGame onReturnToMenu={backToCategoryOrMenu} {...advanceProps} />;
           case 'descubra-a-senha':
             return <DescubraASenhaGame onReturnToMenu={backToCategoryOrMenu} />;
-          case 'adedonha':
+          case 'adedonha-simples':
             return <AdedonhaGame onReturnToMenu={backToCategoryOrMenu} />;
+          case 'adedonha-tapple':
+            return <AdedonhaTappleGame onReturnToMenu={backToCategoryOrMenu} />;
           case 'combinacao-total':
             return <CombinacaoTotalGame onReturnToMenu={backToCategoryOrMenu} />;
           case 'jogo-das-garrafas':

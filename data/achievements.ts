@@ -16,6 +16,8 @@ export const ALL_BADGES: Badge[] = [
     ...gameMedals('segments_medium', 'Segmentos (Médio)'),
     ...gameMedals('segments_hard', 'Segmentos (Difícil)'),
     ...gameMedals('password_unlock', 'Descubra a Senha'),
+    ...gameMedals('adedonha_simples', 'Adedonha Simples'),
+    ...gameMedals('adedonha_tapple', 'Adedonha Tapple'),
 
     // Duel Badge
     {
