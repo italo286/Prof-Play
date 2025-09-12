@@ -57,7 +57,7 @@ interface GameDataContextType {
   clearGarrafasRanking: (challengeId: string) => Promise<void>;
 
   // Student Actions
-  submitAdedonhaAnswer: (roundId: string, answer: string) => Promise<void>;
+  submitAdedonhaAnswer: (roundId: string, answer: string) => Promise<boolean>;
 }
 
 export const GameDataContext = createContext<GameDataContextType>({} as GameDataContextType);
@@ -507,14 +507,17 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [garrafasChallenges, getStudentsInClass]);
 
   // Student Actions
-  const submitAdedonhaAnswer = useCallback(async (roundId: string, answer: string) => {
-    if (!user || user.role !== 'student' || !activeAdedonhaSession || !activeAdedonhaRound) return;
+  const submitAdedonhaAnswer = useCallback(async (roundId: string, answer: string): Promise<boolean> => {
+    if (!user || user.role !== 'student' || !activeAdedonhaSession || !activeAdedonhaRound) return false;
 
     if (activeAdedonhaSession.type === 'tapple') {
         const firstLetter = answer.trim().charAt(0).toUpperCase();
-        if (!firstLetter) return; // Don't submit empty answers
+        if (!firstLetter) return false;
 
         const roundRef = db.doc(`adedonhaRounds/${roundId}`);
+        // FIX: Refactored Tapple submission to correctly use Firebase v8 transaction patterns.
+        // The transaction now only handles the atomic check and update of the shared 'usedLetters' resource.
+        // The user's submission document is created/updated separately after the transaction succeeds.
         try {
             await db.runTransaction(async (transaction) => {
                 const roundDoc = await transaction.get(roundRef);
@@ -522,26 +525,28 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 
                 const roundData = roundDoc.data() as AdedonhaRound;
                 if (roundData.usedLetters?.includes(firstLetter)) {
-                    throw new Error("Letter already used");
+                    throw new Error("Letter already used by another player.");
                 }
                 
-                // Manually update the array instead of using arrayUnion for robustness
                 const newUsedLetters = [...(roundData.usedLetters || []), firstLetter];
                 transaction.update(roundRef, { usedLetters: newUsedLetters });
-                
-                const subsQuery = db.collection('adedonhaSubmissions').where('roundId', '==', roundId).where('studentName', '==', user.name);
-                const subsDocs = await transaction.get(subsQuery);
-
-                if (subsDocs.empty) {
-                    const newSubRef = db.collection('adedonhaSubmissions').doc();
-                    transaction.set(newSubRef, { roundId, studentName: user.name, answer, finalScore: 0, isValid: null });
-                } else {
-                    const subRef = subsDocs.docs[0].ref;
-                    transaction.update(subRef, { answer });
-                }
             });
+            
+            // After successfully reserving the letter, create/update the submission.
+            const subsQuery = db.collection('adedonhaSubmissions').where('roundId', '==', roundId).where('studentName', '==', user.name);
+            const subsDocs = await subsQuery.get();
+
+            if (subsDocs.empty) {
+                const newSubRef = db.collection('adedonhaSubmissions').doc();
+                await newSubRef.set({ roundId, studentName: user.name, answer, finalScore: 0, isValid: null });
+            } else {
+                const subRef = subsDocs.docs[0].ref;
+                await subRef.update({ answer });
+            }
+            return true;
         } catch (error) {
-            console.error("Tapple submission failed: ", error);
+            console.error("Tapple submission transaction failed: ", error);
+            return false;
         }
     } else { // 'simples' mode
         const existingSubmission = adedonhaSubmissions.find(s => s.roundId === roundId && s.studentName === user.name);
@@ -553,6 +558,7 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             };
             await db.collection('adedonhaSubmissions').add(newSubmission);
         }
+        return true;
     }
   }, [user, adedonhaSubmissions, activeAdedonhaSession, activeAdedonhaRound]);
   

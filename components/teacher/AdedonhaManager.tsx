@@ -147,6 +147,7 @@ const AdedonhaSessionView: React.FC<{ session: AdedonhaSession, onEnd: (session:
             );
         }
         if (activeAdedonhaRound.status === 'scoring') {
+            const scoreOptions = session.type === 'simples' ? [0, 5, 10] : [0, 10];
             return (
                 <div className="bg-slate-700 p-6 rounded-lg shadow-inner">
                     <div className="flex justify-between items-center mb-2">
@@ -162,7 +163,7 @@ const AdedonhaSessionView: React.FC<{ session: AdedonhaSession, onEnd: (session:
                                         <span className="font-semibold flex-grow">{sub.studentName}: <span className="italic text-slate-300">{sub.answer || '(vazio)'}</span></span>
                                     </div>
                                     <div className="flex-shrink-0 flex items-center gap-1">
-                                        {[0, 10].map(score => (
+                                        {scoreOptions.map(score => (
                                             <button key={score} onClick={() => updateSubmissionScore(sub.id, score)}
                                                     className={`w-10 h-8 rounded text-xs font-bold ${sub.finalScore === score ? 'bg-sky-500' : 'bg-slate-600 hover:bg-slate-500'}`}>
                                                 {score}

@@ -110,9 +110,15 @@ export const AdedonhaTappleGame: React.FC<{ onReturnToMenu: () => void }> = ({ o
         e.preventDefault();
         if (!activeAdedonhaRound || submitted || timeUp || inputError) return;
         
-        await submitAdedonhaAnswer(activeAdedonhaRound.id, answer);
-        playSuccessSound();
-        setSubmitted(true);
+        const success = await submitAdedonhaAnswer(activeAdedonhaRound.id, answer);
+
+        if (success) {
+            playSuccessSound();
+            setSubmitted(true);
+        } else {
+            const firstLetter = answer.trim().charAt(0).toUpperCase();
+            setInputError(`A letra '${firstLetter}' foi usada por outro jogador! Tente outra.`);
+        }
     };
 
     const mySubmission = useMemo(() => {
