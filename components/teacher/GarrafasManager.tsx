@@ -13,19 +13,26 @@ const getJsDateFromTimestamp = (timestamp: any): Date | null => {
 const RankingModal: React.FC<{ challenge: GarrafasChallenge | null; onClose: () => void; }> = ({ challenge, onClose }) => {
     const { getStudentsInClass } = useContext(GameDataContext);
 
-    const rankedStudents = useMemo(() => {
-        if (!challenge) return [];
+    const { completedStudents, inProgressStudents } = useMemo(() => {
+        if (!challenge) return { completedStudents: [], inProgressStudents: [] };
         const classmates = getStudentsInClass(challenge.classCode);
-        return classmates.map(student => {
-                const stat = student.garrafasStats?.find(s => s.challengeId === challenge.id);
-                return { name: student.name, avatar: student.avatar, attempts: stat?.attempts || 0, isComplete: stat?.isComplete || false, completionTime: getJsDateFromTimestamp(stat?.completionTimestamp) };
-            }).sort((a, b) => {
-                if (a.isComplete !== b.isComplete) return a.isComplete ? -1 : 1;
-                if (a.isComplete && b.isComplete && a.completionTime && b.completionTime) return a.completionTime.getTime() - b.completionTime.getTime();
-                if (b.attempts !== a.attempts) return a.attempts - b.attempts; // Fewer attempts is better
-                return a.name.localeCompare(b.name);
-            });
+        
+        const allStudentStats = classmates.map(student => {
+            const stat = student.garrafasStats?.find(s => s.challengeId === challenge.id);
+            return { name: student.name, avatar: student.avatar, attempts: stat?.attempts || 0, isComplete: stat?.isComplete || false, completionTime: getJsDateFromTimestamp(stat?.completionTimestamp) };
+        });
+
+        const completed = allStudentStats
+            .filter((s): s is { name: string; avatar: string | undefined; attempts: number; isComplete: true; completionTime: Date; } => s.isComplete && !!s.completionTime)
+            .sort((a, b) => a.completionTime!.getTime() - b.completionTime!.getTime());
+
+        const inProgress = allStudentStats
+            .filter(s => !s.isComplete)
+            .sort((a, b) => b.attempts - a.attempts); // Sort by most attempts first
+
+        return { completedStudents: completed, inProgressStudents: inProgress };
     }, [challenge, getStudentsInClass]);
+
 
     if (!challenge) return null;
 
@@ -33,20 +40,40 @@ const RankingModal: React.FC<{ challenge: GarrafasChallenge | null; onClose: () 
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4" onClick={onClose}>
             <div className="bg-slate-800 shadow-2xl rounded-xl p-6 w-full max-w-lg" onClick={e => e.stopPropagation()}>
                 <h2 className="text-2xl font-bold text-center text-sky-400 mb-4">Ranking: {challenge.title}</h2>
-                <div className="w-full bg-slate-900/70 p-4 rounded-lg mt-4 max-h-96 overflow-y-auto">
-                    {rankedStudents.length > 0 ? (
-                        <ol className="space-y-2 text-left">
-                            {rankedStudents.map((student, index) => (
+                <div className="w-full bg-slate-900/70 p-4 rounded-lg mt-4 max-h-[70vh] overflow-y-auto">
+                    
+                    {/* Completed Section */}
+                    <h3 className="font-bold text-lg text-green-400 mb-2">Concluído ({completedStudents.length})</h3>
+                    {completedStudents.length > 0 ? (
+                        <ol className="space-y-2 text-left mb-6">
+                            {completedStudents.map((student, index) => (
                                 <li key={student.name} className="p-3 rounded bg-slate-800 flex items-center gap-3">
                                     <span className={`w-6 text-center font-bold ${index < 3 ? 'text-yellow-400' : 'text-slate-400'}`}>{index + 1}</span>
                                     {student.avatar && <img src={student.avatar} alt={student.name} className="w-8 h-8 rounded-full"/>}
-                                    <span className="font-semibold text-slate-100 flex-grow">{student.name}</span>
-                                    {student.isComplete ? <i className="fas fa-trophy text-yellow-400" title="Completo"></i> : <div className="w-4 h-4" />}
+                                    <div className="flex-grow">
+                                        <span className="font-semibold text-slate-100">{student.name}</span>
+                                        <span className="block text-xs text-slate-400">{student.completionTime?.toLocaleString('pt-BR')}</span>
+                                    </div>
                                     <span className="text-sm font-mono text-slate-300">{student.attempts} trocas</span>
                                 </li>
                             ))}
                         </ol>
-                    ) : <p className="text-slate-500 text-center">Nenhum progresso ainda.</p>}
+                    ) : <p className="text-slate-500 text-sm mb-4">Ninguém completou o desafio ainda.</p>}
+
+                    {/* In Progress Section */}
+                    <h3 className="font-bold text-lg text-amber-400 mb-2">Em Progresso ({inProgressStudents.length})</h3>
+                    {inProgressStudents.length > 0 ? (
+                        <ul className="space-y-2 text-left">
+                            {inProgressStudents.map((student) => (
+                                <li key={student.name} className="p-3 rounded bg-slate-800/50 flex items-center gap-3">
+                                    <div className="w-6 text-center text-slate-500"><i className="fas fa-hourglass-half"></i></div>
+                                    {student.avatar && <img src={student.avatar} alt={student.name} className="w-8 h-8 rounded-full"/>}
+                                    <span className="font-semibold text-slate-100 flex-grow">{student.name}</span>
+                                    <span className="text-sm font-mono text-slate-300">{student.attempts} trocas</span>
+                                </li>
+                            ))}
+                        </ul>
+                    ) : <p className="text-slate-500 text-sm">Todos os alunos completaram o desafio!</p>}
                 </div>
                 <button onClick={onClose} className="w-full mt-4 py-2 bg-sky-600 text-white font-bold rounded-lg">Fechar</button>
             </div>
