@@ -81,22 +81,36 @@ const CompletionScreen: React.FC<{
 const GameView: React.FC<{ challenge: GarrafasChallenge, onBack: () => void }> = ({ challenge, onBack }) => {
     const { user } = useContext(AuthContext);
     const { logGarrafasAttempt } = useContext(ProfileContext);
-    const [currentOrder, setCurrentOrder] = useState<number[]>(() => shuffleArray([...challenge.correctOrder]));
+    const [currentOrder, setCurrentOrder] = useState<number[]>(() => {
+        let shuffled;
+        do {
+            shuffled = shuffleArray([...challenge.correctOrder]);
+        } while (arraysEqual(shuffled, challenge.correctOrder));
+        return shuffled;
+    });
     const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
     const [attempts, setAttempts] = useState(0);
     const [message, setMessage] = useState('');
     const [messageType, setMessageType] = useState<MessageType>('info');
 
     const myStat = useMemo(() => user?.garrafasStats?.find(s => s.challengeId === challenge.id), [user, challenge.id]);
+    const [isComplete, setIsComplete] = useState(myStat?.isComplete || false);
 
-    if (myStat?.isComplete) {
-        return <CompletionScreen challenge={challenge} onBack={onBack} />;
-    }
+    useEffect(() => {
+        if (myStat?.isComplete) {
+            setIsComplete(true);
+        }
+    }, [myStat]);
 
     const handleBottleClick = (index: number) => {
+        if (isComplete) return;
         if (selectedIndex === null) {
             setSelectedIndex(index);
         } else {
+            if (selectedIndex === index) {
+                setSelectedIndex(null);
+                return;
+            }
             const newOrder = [...currentOrder];
             [newOrder[selectedIndex], newOrder[index]] = [newOrder[index], newOrder[selectedIndex]];
             setCurrentOrder(newOrder);
@@ -106,13 +120,13 @@ const GameView: React.FC<{ challenge: GarrafasChallenge, onBack: () => void }> =
     };
     
     const handleCheck = () => {
+        if (isComplete) return;
         const isCorrect = arraysEqual(currentOrder, challenge.correctOrder);
         logGarrafasAttempt(challenge.id, attempts + 1, isCorrect);
         
         if (isCorrect) {
             playSuccessSound();
-            setMessage('Parabéns! Você encontrou a sequência correta!');
-            setMessageType('success');
+            setIsComplete(true);
         } else {
             playErrorSound();
             let correctCount = 0;
@@ -126,6 +140,10 @@ const GameView: React.FC<{ challenge: GarrafasChallenge, onBack: () => void }> =
         }
     };
 
+    if (isComplete) {
+        return <CompletionScreen challenge={challenge} onBack={onBack} />;
+    }
+
     return (
         <div className="w-full max-w-2xl flex flex-col items-center">
             <div className="grid grid-cols-6 gap-2 md:gap-4 mb-6">
@@ -137,7 +155,7 @@ const GameView: React.FC<{ challenge: GarrafasChallenge, onBack: () => void }> =
                 ))}
             </div>
             {message && <MessageDisplay message={message} type={messageType} />}
-            <button onClick={handleCheck} className="mt-4 px-8 py-3 bg-green-600 text-white font-bold rounded-lg shadow-md hover:bg-green-700">Verificar</button>
+            <button onClick={handleCheck} disabled={isComplete} className="mt-4 px-8 py-3 bg-green-600 text-white font-bold rounded-lg shadow-md hover:bg-green-700 disabled:bg-slate-500">Verificar</button>
         </div>
     );
 };
