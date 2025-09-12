@@ -1,5 +1,5 @@
 export interface GameInfo {
-    id: 'coordenadas-geograficas' | 'encontrar-pontos' | 'reconhecer-pontos' | 'simetria-pontos' | 'simetria-segmentos' | 'descubra-a-senha' | 'combinacao-total' | 'adedonha' | 'duelo';
+    id: 'coordenadas-geograficas' | 'encontrar-pontos' | 'reconhecer-pontos' | 'simetria-pontos' | 'simetria-segmentos' | 'descubra-a-senha' | 'combinacao-total' | 'adedonha' | 'duelo' | 'jogo-das-garrafas';
     name: string;
     description: string;
     icon: string;
@@ -14,6 +14,15 @@ export interface GameCategory {
     color: string;
     games: GameInfo[];
 }
+
+export const GARRAFAS_IMAGES = [
+    "https://i.ibb.co/rqL45ht/fdfh.png",
+    "https://i.ibb.co/KxdqpS56/7a4ffca7630428839cc53cf346539cae-garrafa-de-qverde.png",
+    "https://i.ibb.co/C3d6GfC0/7a4ffca7630428839cc53cf346539cae-garrafa-de-sverde.png",
+    "https://i.ibb.co/b5KRKmT7/7a4ffca7630428839cc53cf346539cae-garrafa-sasde-cerveja-verde.png",
+    "https://i.ibb.co/qYGQFRbZ/7a4ffca7630428839cc53cf346539cae-dfde-cerveja-verde.png",
+    "https://i.ibb.co/Qj7Zg7HW/fdff.png"
+];
 
 export const GAME_CATEGORIES: GameCategory[] = [
     {
@@ -39,6 +48,7 @@ export const GAME_CATEGORIES: GameCategory[] = [
         games: [
             { id: 'descubra-a-senha', name: 'Descubra a Senha', description: 'Use a lógica para deduzir a senha secreta.', icon: 'fa-key', badgePrefix: 'password_unlock' },
             { id: 'combinacao-total', name: 'Combinação Total', description: 'Encontre todas as combinações possíveis seguindo as regras.', icon: 'fa-calculator', badgePrefix: 'combinacao_total' },
+            { id: 'jogo-das-garrafas', name: 'Jogo das Garrafas', description: 'Ordene as garrafas na sequência correta.', icon: 'fa-wine-bottle', badgePrefix: 'garrafas' },
         ]
     },
     {

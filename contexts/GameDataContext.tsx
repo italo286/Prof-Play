@@ -5,7 +5,7 @@ import {
     collection, onSnapshot, query, where, orderBy, doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, 
     writeBatch, serverTimestamp, arrayUnion, arrayRemove, deleteField, runTransaction, getDocs
 } from 'firebase/firestore';
-import type { UserProfile, ClassData, PasswordChallenge, AdedonhaSession, AdedonhaRound, AdedonhaSubmission, CombinacaoTotalChallenge } from '../types';
+import type { UserProfile, ClassData, PasswordChallenge, AdedonhaSession, AdedonhaRound, AdedonhaSubmission, CombinacaoTotalChallenge, GarrafasChallenge } from '../types';
 import { AuthContext } from './AuthContext';
 
 const GAME_ID_PASSWORD = 'password_unlock';
@@ -17,6 +17,7 @@ interface GameDataContextType {
   classes: ClassData[];
   passwordChallenges: PasswordChallenge[];
   combinacaoTotalChallenges: CombinacaoTotalChallenge[];
+  garrafasChallenges: GarrafasChallenge[];
   activeAdedonhaSession: AdedonhaSession | null;
   activeAdedonhaRound: AdedonhaRound | null;
   adedonhaSubmissions: AdedonhaSubmission[];
@@ -50,6 +51,10 @@ interface GameDataContextType {
   updateSubmissionScore: (submissionId: string, newScore: number) => Promise<void>;
   finalizeRound: (sessionId: string, roundId: string) => Promise<void>;
   endAdedonhaSession: (sessionId: string) => Promise<void>;
+  createGarrafasChallenge: (challengeData: Omit<GarrafasChallenge, 'id' | 'creatorName' | 'createdAt' | 'status' | 'unlockedTimestamp'>) => Promise<{ status: 'success' | 'error', message?: string }>;
+  deleteGarrafasChallenge: (challengeId: string) => Promise<void>;
+  unlockGarrafasChallenge: (challengeId: string) => Promise<void>;
+  clearGarrafasRanking: (challengeId: string) => Promise<void>;
 
   // Student Actions
   submitAdedonhaAnswer: (roundId: string, answer: string) => Promise<void>;
@@ -65,6 +70,7 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [classes, setClasses] = useState<ClassData[]>([]);
   const [passwordChallenges, setPasswordChallenges] = useState<PasswordChallenge[]>([]);
   const [combinacaoTotalChallenges, setCombinacaoTotalChallenges] = useState<CombinacaoTotalChallenge[]>([]);
+  const [garrafasChallenges, setGarrafasChallenges] = useState<GarrafasChallenge[]>([]);
   const [presenceData, setPresenceData] = useState<Map<string, { lastSeen: any }>>(new Map());
 
 
@@ -94,6 +100,11 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           const data: CombinacaoTotalChallenge[] = [];
           snapshot.forEach(doc => data.push({ id: doc.id, ...doc.data() } as CombinacaoTotalChallenge));
           setCombinacaoTotalChallenges(data);
+      }),
+       onSnapshot(query(collection(db, 'garrafas_challenges'), orderBy('createdAt', 'desc')), snapshot => {
+          const data: GarrafasChallenge[] = [];
+          snapshot.forEach(doc => data.push({ id: doc.id, ...doc.data() } as GarrafasChallenge));
+          setGarrafasChallenges(data);
       }),
       onSnapshot(collection(db, 'presence'), snapshot => {
         const data = new Map<string, { lastSeen: any }>();
@@ -436,6 +447,39 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     await updateDoc(doc(db, 'adedonhaSessions', sessionId), { status: 'finished' });
   }, []);
   
+  // --- Garrafas Actions ---
+  const createGarrafasChallenge = useCallback(async (data: any): Promise<{ status: 'success' | 'error', message?: string }> => {
+    if (!user || user.role !== 'teacher') return { status: 'error', message: 'Apenas professores podem criar desafios.' };
+    const newChallenge = { ...data, creatorName: user.name, status: 'locked', createdAt: serverTimestamp() };
+    await addDoc(collection(db, 'garrafas_challenges'), newChallenge);
+    return { status: 'success' };
+  }, [user]);
+
+  const deleteGarrafasChallenge = useCallback(async (id: string) => {
+    await deleteDoc(doc(db, 'garrafas_challenges', id));
+  }, []);
+
+  const unlockGarrafasChallenge = useCallback(async (id: string) => {
+     await updateDoc(doc(db, 'garrafas_challenges', id), {
+        status: 'unlocked',
+        unlockedTimestamp: serverTimestamp()
+    });
+  }, []);
+  
+  const clearGarrafasRanking = useCallback(async (id: string) => {
+    const challenge = garrafasChallenges.find(c => c.id === id);
+    if (!challenge) return;
+    const students = getStudentsInClass(challenge.classCode);
+    const batch = writeBatch(db);
+    students.forEach(student => {
+        const userRef = doc(db, 'users', student.name);
+        batch.update(userRef, { 
+            garrafasStats: student.garrafasStats?.filter(s => s.challengeId !== id) || []
+        });
+    });
+    await batch.commit();
+  }, [garrafasChallenges, getStudentsInClass]);
+
   // Student Actions
   const submitAdedonhaAnswer = useCallback(async (roundId: string, answer: string) => {
     if (!user || user.role !== 'student' || !activeAdedonhaSession) return;
@@ -455,6 +499,7 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     classes: classes,
     passwordChallenges: passwordChallenges,
     combinacaoTotalChallenges: combinacaoTotalChallenges,
+    garrafasChallenges: garrafasChallenges,
     activeAdedonhaSession: activeAdedonhaSession,
     activeAdedonhaRound: activeAdedonhaRound,
     adedonhaSubmissions: adedonhaSubmissions,
@@ -484,6 +529,10 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     updateSubmissionScore: updateSubmissionScore,
     finalizeRound: finalizeRound,
     endAdedonhaSession: endAdedonhaSession,
+    createGarrafasChallenge,
+    deleteGarrafasChallenge,
+    unlockGarrafasChallenge,
+    clearGarrafasRanking,
     submitAdedonhaAnswer: submitAdedonhaAnswer,
   };
 

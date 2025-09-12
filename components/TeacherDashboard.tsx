@@ -8,6 +8,7 @@ import { ClassDetailTable } from './teacher/ClassDetailTable';
 import { AdedonhaManager } from './teacher/AdedonhaManager';
 import { PasswordChallengeManager } from './teacher/PasswordChallengeManager';
 import { CombinationTotalManager } from './teacher/CombinationTotalManager';
+import { GarrafasManager } from './teacher/GarrafasManager';
 import { ConfirmationModal } from './ConfirmationModal';
 import { EditStudentModal } from './teacher/EditStudentModal';
 import { ManageStudentsList } from './teacher/ManageStudentsList';
@@ -34,7 +35,7 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
   const [studentToDelete, setStudentToDelete] = useState<UserProfile | null>(null);
   const [studentToEdit, setStudentToEdit] = useState<UserProfile | null>(null);
   const [classDetailTab, setClassDetailTab] = useState<'ranking' | 'gerenciar' | 'atividade' | 'jogos'>('ranking');
-  const [selectedGameView, setSelectedGameView] = useState<'overview' | 'adedonha' | 'password' | 'combination'>('overview');
+  const [selectedGameView, setSelectedGameView] = useState<'overview' | 'adedonha' | 'password' | 'combination' | 'garrafas'>('overview');
 
 
   useEffect(() => {
@@ -120,7 +121,8 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
   const gameCards = [
     { id: 'adedonha', name: 'Adedonha', description: 'Gerencie partidas em tempo real.', icon: 'fa-pen-alt', color: 'text-amber-400' },
     { id: 'password', name: 'Descubra a Senha', description: 'Crie e gerencie desafios de senha.', icon: 'fa-key', color: 'text-yellow-400' },
-    { id: 'combination', name: 'Combinação Total', description: 'Elabore desafios de análise combinatória.', icon: 'fa-calculator', color: 'text-green-400' }
+    { id: 'combination', name: 'Combinação Total', description: 'Elabore desafios de análise combinatória.', icon: 'fa-calculator', color: 'text-green-400' },
+    { id: 'garrafas', name: 'Jogo das Garrafas', description: 'Crie desafios de ordenação de garrafas.', icon: 'fa-wine-bottle', color: 'text-teal-400' }
   ];
 
   const selectedClass = selectedClassCode ? teacherClasses.find(c => c.classCode === selectedClassCode) : null;
@@ -229,7 +231,7 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
                  {classDetailTab === 'jogos' && (
                     <div className="animate-fade-in p-4 space-y-8">
                       {selectedGameView === 'overview' && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
                           {gameCards.map(card => (
                             <div key={card.id} onClick={() => setSelectedGameView(card.id as any)}
                               className="p-6 bg-slate-900/70 rounded-lg shadow-lg border-2 border-transparent hover:border-sky-500 hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col items-center text-center"
@@ -251,6 +253,7 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
                           {selectedGameView === 'adedonha' && <AdedonhaManager selectedClass={selectedClass} />}
                           {selectedGameView === 'password' && <PasswordChallengeManager selectedClass={selectedClass} />}
                           {selectedGameView === 'combination' && <CombinationTotalManager selectedClass={selectedClass} user={user} />}
+                          {selectedGameView === 'garrafas' && <GarrafasManager selectedClass={selectedClass} user={user} />}
                         </div>
                       )}
                     </div>

@@ -40,6 +40,13 @@ export interface CombinacaoTotalStat {
   completionTimestamp?: any;
 }
 
+export interface GarrafasStat {
+  challengeId: string;
+  attempts: number;
+  isComplete: boolean;
+  completionTimestamp?: any;
+}
+
 export interface UserProfile {
   name: string; // Used as the unique identifier/username
   password?: string; // Hashed password
@@ -52,6 +59,7 @@ export interface UserProfile {
   badges: string[];
   gameStats: GameStats;
   combinacaoTotalStats?: CombinacaoTotalStat[];
+  garrafasStats?: GarrafasStat[];
 }
 
 export interface ClassData {
@@ -189,6 +197,18 @@ export interface CombinacaoTotalChallenge {
   totalCombinations: number;
   createdAt: any; // Firebase Timestamp
   classCode: string; // To which class this challenge is assigned
+  status: 'locked' | 'unlocked';
+  unlockedTimestamp?: any;
+}
+
+// --- JOGO DAS GARRAFAS TYPES ---
+export interface GarrafasChallenge {
+  id: string;
+  creatorName: string;
+  title: string;
+  correctOrder: number[]; // Array of indices from 0-5 representing the correct sequence
+  createdAt: any; // Firebase Timestamp
+  classCode: string;
   status: 'locked' | 'unlocked';
   unlockedTimestamp?: any;
 }

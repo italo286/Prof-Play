@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect, useCallback, useContext } from 'react';
 import { db } from '../firebase';
-import type { UserProfile, Badge, NotificationItem, GameStat, CombinacaoTotalStat, CombinacaoTotalChallenge } from '../types';
+import type { UserProfile, Badge, NotificationItem, GameStat, CombinacaoTotalStat, CombinacaoTotalChallenge, GarrafasStat, GarrafasChallenge } from '../types';
 import { ALL_BADGES_MAP } from '../data/achievements';
 import { AuthContext } from './AuthContext';
 // FIX: Corrected Firebase Firestore imports for v9+ modular SDK.
@@ -26,6 +26,7 @@ interface ProfileContextType {
   earnBadge: (badgeId: string) => Promise<void>;
   logAttempt: (gameId: string, success: boolean, firstTry: boolean) => Promise<void>;
   logCombinacaoTotalAttempt: (challengeId: string, combination: string) => Promise<void>;
+  logGarrafasAttempt: (challengeId: string, attempts: number, isCorrect: boolean) => Promise<void>;
   updateUserProfile: (data: Partial<UserProfile>) => Promise<void>;
   notifications: NotificationItem[];
   dismissCurrentNotification: () => void;
@@ -36,6 +37,7 @@ export const ProfileContext = createContext<ProfileContextType>({
   earnBadge: async () => {},
   logAttempt: async () => {},
   logCombinacaoTotalAttempt: async () => {},
+  logGarrafasAttempt: async () => {},
   updateUserProfile: async () => {},
   notifications: [],
   dismissCurrentNotification: () => {},
@@ -188,6 +190,45 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [user]);
 
+  const logGarrafasAttempt = useCallback(async (challengeId: string, attempts: number, isCorrect: boolean) => {
+    if (!user) return;
+    const userRef = doc(db, 'users', user.name);
+
+    try {
+        await runTransaction(db, async (transaction) => {
+            const userDoc = await transaction.get(userRef);
+            if (!userDoc.exists()) return;
+
+            const profile = userDoc.data() as UserProfile;
+            const existingStats = profile.garrafasStats || [];
+            const statIndex = existingStats.findIndex(s => s.challengeId === challengeId);
+            let newStats: GarrafasStat[];
+
+            if (statIndex > -1) {
+                const oldStat = existingStats[statIndex];
+                if (oldStat.isComplete) return; // Already completed
+                const updatedStat = { ...oldStat, attempts };
+                 if (isCorrect) {
+                    updatedStat.isComplete = true;
+                    updatedStat.completionTimestamp = serverTimestamp();
+                }
+                newStats = [...existingStats];
+                newStats[statIndex] = updatedStat;
+            } else {
+                const newStat: GarrafasStat = { challengeId, attempts, isComplete: false };
+                if (isCorrect) {
+                    newStat.isComplete = true;
+                    newStat.completionTimestamp = serverTimestamp();
+                }
+                newStats = [...existingStats, newStat];
+            }
+            transaction.update(userRef, { garrafasStats: newStats });
+        });
+    } catch (e) {
+        console.error("Error logging garrafas attempt:", e);
+    }
+  }, [user]);
+
   const updateUserProfile = useCallback(async (data: Partial<UserProfile>) => {
     if (!user) return;
     const userRef = doc(db, 'users', user.name);
@@ -200,6 +241,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       earnBadge,
       logAttempt,
       logCombinacaoTotalAttempt,
+      logGarrafasAttempt,
       updateUserProfile,
       notifications,
       dismissCurrentNotification,
