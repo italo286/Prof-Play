@@ -1,7 +1,7 @@
 import React, { useMemo, useContext } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import type { UserProfile, GameStat } from '../types';
+import type { UserProfile } from '../types';
 import { XpProgressBar } from './XpProgressBar';
 import { BarChart } from './BarChart';
 import { ALL_BADGES_MAP } from '../data/achievements';
@@ -23,32 +23,19 @@ const gameNames: { [key: string]: string } = {
     'simetria-segmentos_hard': 'Segmentos (Difícil)',
 };
 
-const GameNameFetcher: React.FC<{ gameId: string, children: (name: string) => React.ReactNode }> = ({ gameId, children }) => {
-    const { passwordChallenges } = useContext(GameDataContext);
-
-    const getGameName = (id: string): string => {
-        if (id.startsWith('password_unlock_')) {
-            const challengeId = id.replace('password_unlock_', '');
-            const challenge = passwordChallenges.find(c => c.id === challengeId);
-            return `Senha: ${challenge?.title || 'Desconhecido'}`;
-        }
-        return gameNames[id] || id;
-    };
-
-    return <>{children(getGameName(gameId))}</>;
+const getGameName = (gameId: string): string => {
+    if (gameId.startsWith('password_unlock_')) {
+        // Find the title from the challenges in context
+        // This is a bit of a stretch but shows the power of context
+        const { passwordChallenges } = useContext(GameDataContext);
+        const challengeId = gameId.replace('password_unlock_', '');
+        const challenge = passwordChallenges.find(c => c.id === challengeId);
+        return `Senha: ${challenge?.title || 'Desconhecido'}`;
+    }
+    return gameNames[gameId] || gameId;
 };
 
 export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, student }) => {
-  const { passwordChallenges } = useContext(GameDataContext);
-
-  const getGameName = (gameId: string): string => {
-      if (gameId.startsWith('password_unlock_')) {
-          const challengeId = gameId.replace('password_unlock_', '');
-          const challenge = passwordChallenges.find(c => c.id === challengeId);
-          return `Senha: ${challenge?.title || 'Desconhecido'}`;
-      }
-      return gameNames[gameId] || gameId;
-  };
 
   const handleDownloadPdf = () => {
     if (!student) return;
@@ -123,8 +110,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, stude
   const performanceData = useMemo(() => {
     if (!student?.gameStats) return [];
     
-    // FIX: Explicitly type the mapped entry to ensure type safety for stats.
-    return Object.entries(student.gameStats).map(([gameId, stats]: [string, GameStat]) => {
+    return Object.entries(student.gameStats).map(([gameId, stats]) => {
       const totalSuccess = stats.successFirstTry + stats.successOther;
       return {
         gameName: getGameName(gameId),
@@ -132,7 +118,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, stude
         totalSuccess,
       };
     });
-  }, [student, passwordChallenges]);
+  }, [student]);
 
   const successData = useMemo(() => {
     if (!performanceData) return [];

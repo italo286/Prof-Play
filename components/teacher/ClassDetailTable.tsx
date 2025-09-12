@@ -1,5 +1,5 @@
 import React from 'react';
-import type { UserProfile, GameStat } from '../../types';
+import type { UserProfile } from '../../types';
 import { ALL_BADGES_MAP } from '../../data/achievements';
 
 const gameNames: { [key: string]: string } = {
@@ -80,8 +80,7 @@ export const ClassDetailTable: React.FC<ClassDetailTableProps> = ({ students, on
                                 <td className="p-3 text-center">{student.level}</td>
                                 <td className="p-3 text-center">{student.xp}</td>
                                 {gameIdsInOrder.map(gameId => {
-                                    // FIX: Correctly handle aggregated and individual game stats with proper typing.
-                                    const stats: GameStat = gameId === 'password_unlock'
+                                    const stats = gameId === 'password_unlock'
                                         ? Object.entries(gameStats).reduce((acc, [key, value]) => {
                                             if (key.startsWith('password_unlock_')) {
                                                 acc.successFirstTry += value.successFirstTry;

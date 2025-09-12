@@ -1,5 +1,3 @@
-// types.ts
-
 export interface Point {
   x: number;
   y: number;
@@ -10,95 +8,112 @@ export interface GeoPoint {
   lon: number;
 }
 
-export type MessageType = 'info' | 'success' | 'error' | 'final';
+export type MessageType = 'success' | 'error' | 'info' | 'final';
+
+export type SymmetryType = 'x-axis' | 'y-axis' | 'origin';
+
+export type Difficulty = 'easy' | 'medium' | 'hard';
+
+export interface Badge {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  tier: 'bronze' | 'silver' | 'gold' | 'level';
+}
+
+export interface GameStat {
+  successFirstTry: number;
+  successOther: number;
+  errors: number;
+  completionTimestamp?: any; // Firebase Timestamp
+}
+
+export type GameStats = {
+  [gameId: string]: GameStat;
+};
+
+export interface CombinacaoTotalStat {
+  challengeId: string;
+  foundCombinations: string[];
+  isComplete: boolean;
+  completionTimestamp?: any;
+}
+
+export interface GarrafasStat {
+  challengeId: string;
+  attempts: number;
+  isComplete: boolean;
+  completionTimestamp?: any;
+}
+
+export interface UserProfile {
+  name: string; // Used as the unique identifier/username
+  password?: string; // Hashed password
+  role: 'student' | 'teacher';
+  avatar?: string;
+  classCode?: string; // For students
+  classes?: string[]; // For teachers: list of class codes they own
+  xp: number;
+  level: number;
+  badges: string[];
+  gameStats: GameStats;
+  combinacaoTotalStats?: CombinacaoTotalStat[];
+  garrafasStats?: GarrafasStat[];
+}
+
+export interface ClassData {
+    classCode: string;
+    className: string;
+    teacherName: string;
+}
+
+export type NotificationItem = 
+  | { type: 'level'; payload: { from: number; to: number } }
+  | { type: 'badge'; payload: Badge };
 
 export type HintType = 'line-draw-to-point' | 'line-draw-from-point' | 'point-move' | 'point-blink';
 
 export interface HintInfo {
-    type: HintType;
-    point?: Point;
-    fromPoint?: Point;
-    points?: Point[];
+  type: HintType;
+  point?: Point;
+  fromPoint?: Point;
+  fromPoints?: Point[];
+  points?: Point[];
 }
 
 export interface GeoHintInfo {
     point: GeoPoint;
 }
 
-export type SymmetryType = 'x-axis' | 'y-axis' | 'origin';
-export type Difficulty = 'easy' | 'medium' | 'hard';
-
-export interface Badge {
-    id: string;
-    name: string;
-    description: string;
-    icon: string;
-    tier: 'gold' | 'silver' | 'bronze' | 'level';
+// --- PASSWORD CHALLENGE TYPES ---
+export interface PasswordChallenge {
+  id: string;
+  creatorName: string;
+  title: string;
+  password: string; // The secret password
+  rules: string[]; // Text hints like "All digits are odd"
+  allowRepeats: boolean;
+  digitCount: number;
+  status: 'locked' | 'unlocked';
+  unlockedTimestamp?: any; // Firebase Timestamp
+  classCode: string; // To which class this challenge is assigned
 }
 
-export interface GameStat {
-    successFirstTry: number;
-    successOther: number;
-    errors: number;
-    completionTimestamp?: any; // firebase.firestore.Timestamp
-}
-
-export interface CombinacaoTotalStat {
-    challengeId: string;
-    foundCombinations: string[];
-    isComplete: boolean;
-    completionTimestamp?: any;
-}
-
-export interface GarrafasStat {
-    challengeId: string;
-    attempts: number;
-    isComplete: boolean;
-    completionTimestamp?: any;
-}
-
-
-export interface UserProfile {
-    name: string;
-    password?: string; // Should not be exposed on client, but seems to be part of the data model
-    role: 'student' | 'teacher';
-    classCode?: string;
-    avatar?: string;
-    classes?: string[];
-    xp: number;
-    level: number;
-    badges: string[];
-    gameStats: { [gameId: string]: GameStat };
-    combinacaoTotalStats?: CombinacaoTotalStat[];
-    garrafasStats?: GarrafasStat[];
-}
-
-export interface GameMode {
-    id: string;
-    name: string;
-    description: string;
-    icon: string;
-    badgePrefix: string;
-    unlockLevel?: number;
-    previousMode?: string;
-}
-
-export interface GameCategory {
-    id: string;
-    name: string;
-    description: string;
-    icon: string;
-    color: string;
-    games: GameMode[];
-}
-
-export interface NotificationItem {
-    type: 'level' | 'badge';
-    payload: any;
-}
+// --- DUEL TYPES ---
 
 export type DuelableGameMode = 'encontrar-pontos' | 'reconhecer-pontos' | 'simetria-pontos' | 'coordenadas-geograficas' | 'descubra-a-senha';
-export type DuelChallenge = Point | GeoPoint | { point: Point; type: SymmetryType };
+
+export type DuelChallenge = Point | { point: Point; type: SymmetryType } | GeoPoint;
+
+export interface DuelInvitation {
+  id: string;
+  from: string;
+  to: string;
+  status: 'pending' | 'accepted' | 'declined' | 'cancelled';
+  duelId: string;
+  gameMode: DuelableGameMode;
+}
 
 export interface DuelPlayer {
     name: string;
@@ -110,111 +125,90 @@ export interface DuelPasswordPlayerState {
     password: string;
     rules: string[];
     digitCount: number;
-    guesses: { guess: string, correctCount: number }[];
+    guesses: { guess: string; correctCount: number }[];
     ready: boolean;
 }
 
+export interface DuelPasswordState {
+    [playerName: string]: DuelPasswordPlayerState;
+}
+
 export interface DuelState {
-    id: string;
-    players: DuelPlayer[];
-    gameMode: DuelableGameMode;
-    challenges: DuelChallenge[];
-    status: 'starting' | 'setup' | 'playing' | 'finished';
-    winner: string | null;
-    passwordGameState?: {
-        [playerName: string]: DuelPasswordPlayerState
-    };
+  id: string;
+  players: [DuelPlayer, DuelPlayer];
+  gameMode: DuelableGameMode;
+  challenges: DuelChallenge[];
+  passwordGameState?: DuelPasswordState;
+  status: 'starting' | 'setup' | 'playing' | 'finished';
+  winner: string | null;
 }
 
-export interface DuelInvitation {
-    id: string;
-    from: string;
-    to: string;
-    status: 'pending' | 'accepted' | 'declined';
-    duelId: string;
-    gameMode: DuelableGameMode;
-}
-
-export interface PasswordChallenge {
-    id: string;
-    classCode: string;
-    creatorName: string;
-    title: string;
-    password: string;
-    rules: string[];
-    digitCount: number;
-    allowRepeats: boolean;
-    status: 'locked' | 'unlocked';
-    unlockedTimestamp?: any; // firebase.firestore.Timestamp
-}
-
-export interface CombinacaoTotalChallengeRules {
-    digitCount: number;
-    allowedDigits: string;
-    noRepetition: boolean;
-    noConsecutiveDuplicates: boolean;
-    specificConsecutiveDisallowed?: string;
-    firstDigitNotZero: boolean;
-    lastDigitMustBeEven: boolean;
-    lastDigitMustBeOdd: boolean;
-    digitsInAscendingOrder: boolean;
-    digitsInDescendingOrder: boolean;
-    mustContainDigit?: string;
-    sumOfDigits?: number;
-}
-
-
-export interface CombinacaoTotalChallenge {
-    id: string;
-    classCode: string;
-    creatorName: string;
-    title: string;
-    rules: CombinacaoTotalChallengeRules;
-    totalCombinations: number;
-    status: 'locked' | 'unlocked';
-}
-
-export interface GarrafasChallenge {
-    id: string;
-    classCode: string;
-    creatorName: string;
-    title: string;
-    correctOrder: number[];
-    status: 'locked' | 'unlocked';
-}
-
-
-export interface ClassData {
-    id: string;
-    className: string;
-    classCode: string;
-    teacherName: string;
-}
-
-export interface AdedonhaSession {
-    id: string;
-    classCode: string;
-    teacherName: string;
-    status: 'lobby' | 'playing' | 'finished';
-    scores: { [studentName: string]: number };
+// --- ADEDONHA TYPES ---
+export interface AdedonhaSubmission {
+  id: string;
+  roundId: string;
+  studentName: string;
+  answer: string;
+  finalScore: number;
+  isValid: boolean | null; // null: not validated, true: valid, false: invalid
 }
 
 export interface AdedonhaRound {
-    id: string;
-    sessionId: string;
-    roundNumber: number;
-    status: 'playing' | 'scoring' | 'finished';
-    theme: string;
-    letter: string;
-    startTime: any; // firebase.firestore.Timestamp
-    duration: number; // in seconds
+  id: string;
+  sessionId: string;
+  roundNumber: number;
+  theme: string;
+  letter: string;
+  status: 'playing' | 'scoring' | 'finished';
+  startTime: any; // Firebase Timestamp
+  duration: number; // Duration of the round in seconds
 }
 
-export interface AdedonhaSubmission {
-    id: string;
-    roundId: string;
-    studentName: string;
-    answer: string;
-    isValid?: boolean | null;
-    finalScore: number;
+export interface AdedonhaSession {
+  id: string;
+  classCode: string;
+  teacherName: string;
+  status: 'active' | 'finished';
+  createdAt: any; // Firebase Timestamp
+  scores: { [studentName: string]: number };
+}
+
+// --- COMBINAÇÃO TOTAL TYPES ---
+export interface CombinacaoTotalChallengeRules {
+  digitCount: number;
+  allowedDigits: string;
+  noRepetition: boolean;
+  noConsecutiveDuplicates: boolean;
+  specificConsecutiveDisallowed?: string;
+  firstDigitNotZero: boolean;
+  lastDigitMustBeEven: boolean;
+  lastDigitMustBeOdd: boolean;
+  digitsInAscendingOrder: boolean;
+  digitsInDescendingOrder: boolean;
+  mustContainDigit?: string;
+  sumOfDigits?: number;
+}
+
+export interface CombinacaoTotalChallenge {
+  id: string;
+  creatorName: string;
+  title: string;
+  rules: CombinacaoTotalChallengeRules;
+  totalCombinations: number;
+  createdAt: any; // Firebase Timestamp
+  classCode: string; // To which class this challenge is assigned
+  status: 'locked' | 'unlocked';
+  unlockedTimestamp?: any;
+}
+
+// --- JOGO DAS GARRAFAS TYPES ---
+export interface GarrafasChallenge {
+  id: string;
+  creatorName: string;
+  title: string;
+  correctOrder: number[]; // Array of indices from 0-5 representing the correct sequence
+  createdAt: any; // Firebase Timestamp
+  classCode: string;
+  status: 'locked' | 'unlocked';
+  unlockedTimestamp?: any;
 }

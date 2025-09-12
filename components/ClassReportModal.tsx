@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import type { UserProfile, GameStat } from '../types';
+import type { UserProfile } from '../types';
 import { BarChart } from './BarChart';
 
 interface ClassReportModalProps {
@@ -28,11 +28,11 @@ export const ClassReportModal: React.FC<ClassReportModalProps> = ({ isOpen, onCl
     const aggregatedStats: { [gameId: string]: { successes: number; errors: number } } = {};
 
     for (const student of students) {
-        // FIX: Ensure gameStats is treated as a dictionary of GameStat objects
-        for (const [gameId, stats] of Object.entries(student.gameStats || {}) as [string, GameStat][]) {
+        for (const gameId in student.gameStats) {
             if (!aggregatedStats[gameId]) {
                 aggregatedStats[gameId] = { successes: 0, errors: 0 };
             }
+            const stats = student.gameStats[gameId];
             aggregatedStats[gameId].successes += stats.successFirstTry + stats.successOther;
             aggregatedStats[gameId].errors += stats.errors;
         }
