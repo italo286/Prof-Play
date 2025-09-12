@@ -34,6 +34,8 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
   const [studentToDelete, setStudentToDelete] = useState<UserProfile | null>(null);
   const [studentToEdit, setStudentToEdit] = useState<UserProfile | null>(null);
   const [classDetailTab, setClassDetailTab] = useState<'ranking' | 'gerenciar' | 'atividade' | 'jogos'>('ranking');
+  const [selectedGameView, setSelectedGameView] = useState<'overview' | 'adedonha' | 'password' | 'combination'>('overview');
+
 
   useEffect(() => {
     if (selectedClassCode) {
@@ -48,6 +50,10 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
     }
   }, [selectedClassCode, getStudentsInClass, allOnlineStudents]); // Dependency on allOnlineStudents to refresh on student data changes
   
+  useEffect(() => {
+    setSelectedGameView('overview');
+  }, [classDetailTab]);
+
   const onlineInClass = useMemo(() => allOnlineStudents.filter(s => s.classCode === selectedClassCode), [allOnlineStudents, selectedClassCode]);
   const onlineStudentNames = useMemo(() => new Set(onlineInClass.map(s => s.name)), [onlineInClass]);
   const offlineInClass = useMemo(() => {
@@ -110,6 +116,12 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
       </div>
     );
   }
+  
+  const gameCards = [
+    { id: 'adedonha', name: 'Adedonha', description: 'Gerencie partidas em tempo real.', icon: 'fa-pen-alt', color: 'text-amber-400' },
+    { id: 'password', name: 'Descubra a Senha', description: 'Crie e gerencie desafios de senha.', icon: 'fa-key', color: 'text-yellow-400' },
+    { id: 'combination', name: 'Combinação Total', description: 'Elabore desafios de análise combinatória.', icon: 'fa-calculator', color: 'text-green-400' }
+  ];
 
   const selectedClass = selectedClassCode ? teacherClasses.find(c => c.classCode === selectedClassCode) : null;
 
@@ -216,18 +228,31 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
                 )}
                  {classDetailTab === 'jogos' && (
                     <div className="animate-fade-in p-4 space-y-8">
-                        <section>
-                            <h3 className="text-2xl font-bold text-slate-100 mb-4 border-b-2 border-slate-700 pb-2 flex items-center gap-3"><i className="fas fa-pen-alt text-amber-400"></i>Adedonha</h3>
-                            <AdedonhaManager selectedClass={selectedClass} />
-                        </section>
-                        <section>
-                            <h3 className="text-2xl font-bold text-slate-100 mb-4 border-b-2 border-slate-700 pb-2 flex items-center gap-3"><i className="fas fa-key text-yellow-400"></i>Descubra a Senha</h3>
-                            <PasswordChallengeManager selectedClass={selectedClass} />
-                        </section>
-                        <section>
-                            <h3 className="text-2xl font-bold text-slate-100 mb-4 border-b-2 border-slate-700 pb-2 flex items-center gap-3"><i className="fas fa-calculator text-green-400"></i>Combinação Total</h3>
-                            <CombinationTotalManager selectedClass={selectedClass} user={user} />
-                        </section>
+                      {selectedGameView === 'overview' && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                          {gameCards.map(card => (
+                            <div key={card.id} onClick={() => setSelectedGameView(card.id as any)}
+                              className="p-6 bg-slate-900/70 rounded-lg shadow-lg border-2 border-transparent hover:border-sky-500 hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col items-center text-center"
+                            >
+                              <i className={`fas ${card.icon} text-5xl mb-4 ${card.color}`}></i>
+                              <h2 className="text-2xl font-bold text-slate-100">{card.name}</h2>
+                              <p className="text-sm text-slate-400 mt-1 h-10">{card.description}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {selectedGameView !== 'overview' && (
+                        <div>
+                          <button onClick={() => setSelectedGameView('overview')} className="mb-4 text-slate-300 hover:text-sky-400 transition-colors flex items-center text-sm font-medium p-2 rounded-lg hover:bg-slate-700">
+                            <i className="fas fa-arrow-left mr-2"></i> Voltar para Jogos
+                          </button>
+                          
+                          {selectedGameView === 'adedonha' && <AdedonhaManager selectedClass={selectedClass} />}
+                          {selectedGameView === 'password' && <PasswordChallengeManager selectedClass={selectedClass} />}
+                          {selectedGameView === 'combination' && <CombinationTotalManager selectedClass={selectedClass} user={user} />}
+                        </div>
+                      )}
                     </div>
                  )}
             </main>
