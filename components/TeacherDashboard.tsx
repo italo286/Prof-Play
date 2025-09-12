@@ -29,12 +29,11 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
   const [isClassReportModalOpen, setClassReportModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<UserProfile | null>(null);
   const [copyMessage, setCopyMessage] = useState('');
-  const [activeTab, setActiveTab] = useState<'classes' | 'challenges' | 'adedonha' | 'combinacao-total'>('classes');
   
   const [classToDelete, setClassToDelete] = useState<ClassData | null>(null);
   const [studentToDelete, setStudentToDelete] = useState<UserProfile | null>(null);
   const [studentToEdit, setStudentToEdit] = useState<UserProfile | null>(null);
-  const [classDetailTab, setClassDetailTab] = useState<'ranking' | 'gerenciar' | 'atividade'>('ranking');
+  const [classDetailTab, setClassDetailTab] = useState<'ranking' | 'gerenciar' | 'atividade' | 'jogos'>('ranking');
 
   useEffect(() => {
     if (selectedClassCode) {
@@ -157,7 +156,7 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
                 </button>
             </header>
             
-            <div className="mb-4 border-b border-slate-700 flex">
+            <div className="mb-4 border-b border-slate-700 flex flex-wrap">
                 <button onClick={() => setClassDetailTab('ranking')} className={`px-4 py-3 font-semibold text-base transition-colors ${classDetailTab === 'ranking' ? 'text-sky-400 border-b-2 border-sky-400' : 'text-slate-400 hover:text-white'}`}>
                     <i className="fas fa-trophy mr-2"></i>Ranking da Turma
                 </button>
@@ -166,6 +165,9 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
                 </button>
                 <button onClick={() => setClassDetailTab('atividade')} className={`px-4 py-3 font-semibold text-base transition-colors ${classDetailTab === 'atividade' ? 'text-sky-400 border-b-2 border-sky-400' : 'text-slate-400 hover:text-white'}`}>
                     <i className="fas fa-signal mr-2"></i>Atividade
+                </button>
+                <button onClick={() => setClassDetailTab('jogos')} className={`px-4 py-3 font-semibold text-base transition-colors ${classDetailTab === 'jogos' ? 'text-sky-400 border-b-2 border-sky-400' : 'text-slate-400 hover:text-white'}`}>
+                    <i className="fas fa-gamepad mr-2"></i>Jogos
                 </button>
             </div>
 
@@ -212,6 +214,22 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
                         </div>
                     </div>
                 )}
+                 {classDetailTab === 'jogos' && (
+                    <div className="animate-fade-in p-4 space-y-8">
+                        <section>
+                            <h3 className="text-2xl font-bold text-slate-100 mb-4 border-b-2 border-slate-700 pb-2 flex items-center gap-3"><i className="fas fa-pen-alt text-amber-400"></i>Adedonha</h3>
+                            <AdedonhaManager selectedClass={selectedClass} />
+                        </section>
+                        <section>
+                            <h3 className="text-2xl font-bold text-slate-100 mb-4 border-b-2 border-slate-700 pb-2 flex items-center gap-3"><i className="fas fa-key text-yellow-400"></i>Descubra a Senha</h3>
+                            <PasswordChallengeManager selectedClass={selectedClass} />
+                        </section>
+                        <section>
+                            <h3 className="text-2xl font-bold text-slate-100 mb-4 border-b-2 border-slate-700 pb-2 flex items-center gap-3"><i className="fas fa-calculator text-green-400"></i>Combinação Total</h3>
+                            <CombinationTotalManager selectedClass={selectedClass} user={user} />
+                        </section>
+                    </div>
+                 )}
             </main>
         </div>
         {copyMessage && (
@@ -256,82 +274,50 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
             <p className="text-slate-300 mt-2">Bem-vindo(a), {user.name}! Gerencie suas turmas e crie desafios.</p>
         </header>
         
-         <div className="mb-6 border-b border-slate-700 flex flex-wrap">
-            <button onClick={() => setActiveTab('classes')} className={`px-4 py-3 font-semibold text-base transition-colors ${activeTab === 'classes' ? 'text-sky-400 border-b-2 border-sky-400' : 'text-slate-400 hover:text-white'}`}>
-                <i className="fas fa-users mr-2"></i>Turmas e Alunos
-            </button>
-             <button onClick={() => setActiveTab('challenges')} className={`px-4 py-3 font-semibold text-base transition-colors ${activeTab === 'challenges' ? 'text-sky-400 border-b-2 border-sky-400' : 'text-slate-400 hover:text-white'}`}>
-                <i className="fas fa-key mr-2"></i>Descubra a Senha
-            </button>
-            <button onClick={() => setActiveTab('combinacao-total')} className={`px-4 py-3 font-semibold text-base transition-colors ${activeTab === 'combinacao-total' ? 'text-sky-400 border-b-2 border-sky-400' : 'text-slate-400 hover:text-white'}`}>
-                <i className="fas fa-calculator mr-2"></i>Combinação Total
-            </button>
-            <button onClick={() => setActiveTab('adedonha')} className={`px-4 py-3 font-semibold text-base transition-colors ${activeTab === 'adedonha' ? 'text-sky-400 border-b-2 border-sky-400' : 'text-slate-400 hover:text-white'}`}>
-                <i className="fas fa-pen-alt mr-2"></i>Adedonha
-            </button>
-        </div>
-        
         <main className="mt-6">
-            {activeTab === 'classes' && (
-                <div className="animate-fade-in grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-slate-900/70 p-6 rounded-lg">
-                        <h2 className="text-xl font-bold text-sky-300 mb-4">Minhas Turmas</h2>
-                        <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
-                            {teacherClasses.length > 0 ? teacherClasses.map(c => (
-                                <div key={c.classCode} onClick={() => setSelectedClassCode(c.classCode)} className="relative p-4 bg-slate-700 rounded-lg cursor-pointer hover:bg-sky-900/50 border-2 border-transparent hover:border-sky-600 transition-all group">
-                                    <h3 className="font-bold text-lg text-sky-300">{c.className}</h3>
-                                    <p className="text-sm text-slate-400">Código: <span className="font-mono">{c.classCode}</span></p>
-                                    <button 
-                                        onClick={(e) => { e.stopPropagation(); setClassToDelete(c); }} 
-                                        className="absolute top-2 right-2 text-slate-500 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
-                                        aria-label={`Excluir turma ${c.className}`}
-                                    >
-                                        <i className="fas fa-trash-alt"></i>
-                                    </button>
-                                </div>
-                            )) : (
-                                <p className="text-slate-400">Você ainda não criou nenhuma turma.</p>
-                            )}
-                        </div>
-                    </div>
-                    <div className="bg-slate-900/70 p-6 rounded-lg">
-                        <h2 className="text-xl font-bold text-sky-300 mb-4">Criar Nova Turma</h2>
-                        <form onSubmit={handleCreateClass} className="space-y-4">
-                            <div>
-                                <label htmlFor="class-name" className="block text-sm font-medium text-slate-300 mb-1">Nome da Turma</label>
-                                <input
-                                    id="class-name"
-                                    type="text"
-                                    value={newClassName}
-                                    onChange={(e) => setNewClassName(e.target.value)}
-                                    className="w-full p-2 border border-slate-600 rounded-md bg-slate-700 text-white focus:ring-2 focus:ring-sky-500"
-                                    placeholder="Ex: 6º Ano A - Manhã"
-                                    required
-                                />
+            <div className="animate-fade-in grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-slate-900/70 p-6 rounded-lg">
+                    <h2 className="text-xl font-bold text-sky-300 mb-4">Minhas Turmas</h2>
+                    <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
+                        {teacherClasses.length > 0 ? teacherClasses.map(c => (
+                            <div key={c.classCode} onClick={() => setSelectedClassCode(c.classCode)} className="relative p-4 bg-slate-700 rounded-lg cursor-pointer hover:bg-sky-900/50 border-2 border-transparent hover:border-sky-600 transition-all group">
+                                <h3 className="font-bold text-lg text-sky-300">{c.className}</h3>
+                                <p className="text-sm text-slate-400">Código: <span className="font-mono">{c.classCode}</span></p>
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); setClassToDelete(c); }} 
+                                    className="absolute top-2 right-2 text-slate-500 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                                    aria-label={`Excluir turma ${c.className}`}
+                                >
+                                    <i className="fas fa-trash-alt"></i>
+                                </button>
                             </div>
-                            {error && <p className="text-red-400 text-sm">{error}</p>}
-                            <button type="submit" className="w-full px-4 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-colors">
-                                Criar Turma
-                            </button>
-                        </form>
+                        )) : (
+                            <p className="text-slate-400">Você ainda não criou nenhuma turma.</p>
+                        )}
                     </div>
                 </div>
-            )}
-            {activeTab === 'challenges' && (
-                <div className="animate-fade-in">
-                    <PasswordChallengeManager teacherClasses={teacherClasses} />
+                <div className="bg-slate-900/70 p-6 rounded-lg">
+                    <h2 className="text-xl font-bold text-sky-300 mb-4">Criar Nova Turma</h2>
+                    <form onSubmit={handleCreateClass} className="space-y-4">
+                        <div>
+                            <label htmlFor="class-name" className="block text-sm font-medium text-slate-300 mb-1">Nome da Turma</label>
+                            <input
+                                id="class-name"
+                                type="text"
+                                value={newClassName}
+                                onChange={(e) => setNewClassName(e.target.value)}
+                                className="w-full p-2 border border-slate-600 rounded-md bg-slate-700 text-white focus:ring-2 focus:ring-sky-500"
+                                placeholder="Ex: 6º Ano A - Manhã"
+                                required
+                            />
+                        </div>
+                        {error && <p className="text-red-400 text-sm">{error}</p>}
+                        <button type="submit" className="w-full px-4 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-colors">
+                            Criar Turma
+                        </button>
+                    </form>
                 </div>
-            )}
-             {activeTab === 'combinacao-total' && (
-                <div className="animate-fade-in">
-                    <CombinationTotalManager teacherClasses={teacherClasses} user={user} />
-                </div>
-            )}
-            {activeTab === 'adedonha' && (
-                <div className="animate-fade-in">
-                    <AdedonhaManager teacherClasses={teacherClasses} />
-                </div>
-            )}
+            </div>
         </main>
 
         <footer className="text-center text-sm text-slate-400 pt-8">

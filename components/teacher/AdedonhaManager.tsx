@@ -176,7 +176,7 @@ const AdedonhaSessionView: React.FC<{ session: AdedonhaSession, onEnd: (session:
     };
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-amber-800/10 p-4 rounded-lg" style={{backgroundImage: `url('https://www.transparenttextures.com/patterns/wood-pattern.png')`}}>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 rounded-lg">
             <div className="md:col-span-1 bg-slate-900/70 p-4 rounded-lg shadow-lg">
                 <h3 className="text-lg font-bold text-cyan-300 mb-2">Placar da Partida</h3>
                 <div className="space-y-2 max-h-[26rem] overflow-y-auto pr-2">
@@ -205,42 +205,53 @@ const AdedonhaSessionView: React.FC<{ session: AdedonhaSession, onEnd: (session:
     );
 };
 
-export const AdedonhaManager: React.FC<{ teacherClasses: ClassData[] }> = ({ teacherClasses }) => {
+export const AdedonhaManager: React.FC<{ selectedClass: ClassData }> = ({ selectedClass }) => {
     const { activeAdedonhaSession, createAdedonhaSession, endAdedonhaSession } = useContext(GameDataContext);
-    const [selectedClass, setSelectedClass] = useState<string>('');
     const [finishedSession, setFinishedSession] = useState<AdedonhaSession | null>(null);
 
-    const sessionToRender = activeAdedonhaSession || finishedSession;
+    const sessionToRender = useMemo(() => {
+        // Only show the session if it belongs to the currently selected class
+        if(activeAdedonhaSession && activeAdedonhaSession.classCode === selectedClass.classCode) {
+            return activeAdedonhaSession;
+        }
+        if(finishedSession && finishedSession.classCode === selectedClass.classCode) {
+            return finishedSession;
+        }
+        return null;
+    }, [activeAdedonhaSession, finishedSession, selectedClass]);
 
     const handleStartSession = async () => {
         if (selectedClass) {
             setFinishedSession(null);
-            await createAdedonhaSession(selectedClass);
+            await createAdedonhaSession(selectedClass.classCode);
         }
     };
     
     const handleEndSession = (sessionData: AdedonhaSession) => {
-        endAdedonhaSession(sessionData.id); // This makes activeAdedonhaSession from context null
-        setFinishedSession({ ...sessionData, status: 'finished' }); // We capture the data locally
+        endAdedonhaSession(sessionData.id);
+        setFinishedSession({ ...sessionData, status: 'finished' });
     };
 
     if (sessionToRender) {
         return <AdedonhaSessionView session={sessionToRender} onEnd={handleEndSession} onGoBackToLobby={() => setFinishedSession(null)} />;
     }
+    
+    // Show start button if another session (for another class) is active for this teacher
+    if (activeAdedonhaSession) {
+         return (
+            <div className="bg-slate-900/70 p-6 rounded-lg text-center">
+                <p className="text-amber-400"><i className="fas fa-exclamation-triangle mr-2"></i>Você já tem uma sessão de Adedonha ativa em outra turma. Encerre-a para iniciar uma nova aqui.</p>
+            </div>
+        );
+    }
 
     return (
         <div className="bg-slate-900/70 p-6 rounded-lg text-center">
             <h2 className="text-xl font-bold text-sky-300 mb-4">Iniciar Jogo de Adedonha</h2>
-            <p className="text-slate-300 mb-4">Selecione uma turma para começar uma nova partida.</p>
-            <div className="flex gap-2 justify-center">
-                <select value={selectedClass} onChange={e => setSelectedClass(e.target.value)} className="p-2 border border-slate-600 rounded-md bg-slate-700 text-white">
-                    <option value="" disabled>Selecione uma turma</option>
-                    {teacherClasses.map(c => <option key={c.classCode} value={c.classCode}>{c.className}</option>)}
-                </select>
-                <button onClick={handleStartSession} disabled={!selectedClass} className="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:bg-slate-500">
-                    Iniciar Sessão
-                </button>
-            </div>
+            <p className="text-slate-300 mb-4">Iniciar uma nova partida para a turma <span className="font-bold">{selectedClass.className}</span>.</p>
+            <button onClick={handleStartSession} className="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:bg-slate-500">
+                <i className="fas fa-play mr-2"></i>Iniciar Sessão
+            </button>
         </div>
     );
 };

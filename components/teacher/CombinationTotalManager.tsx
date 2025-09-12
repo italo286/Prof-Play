@@ -65,11 +65,11 @@ const RuleCheckbox: React.FC<{ label: string; checked: boolean; onChange: (check
 );
 
 interface CombinationTotalManagerProps {
-    teacherClasses: ClassData[];
+    selectedClass: ClassData;
     user: UserProfile;
 }
 
-export const CombinationTotalManager: React.FC<CombinationTotalManagerProps> = ({ teacherClasses, user }) => {
+export const CombinationTotalManager: React.FC<CombinationTotalManagerProps> = ({ selectedClass, user }) => {
     const { createCombinacaoTotalChallenge, combinacaoTotalChallenges, deleteCombinacaoTotalChallenge, unlockCombinacaoTotalChallenge, clearCombinacaoTotalRanking } = useContext(GameDataContext);
     const [rules, setRules] = useState<CombinacaoTotalChallengeRules>({
         digitCount: 3, allowedDigits: '012', noRepetition: false, noConsecutiveDuplicates: false,
@@ -77,7 +77,6 @@ export const CombinationTotalManager: React.FC<CombinationTotalManagerProps> = (
         digitsInAscendingOrder: false, digitsInDescendingOrder: false,
     });
     const [title, setTitle] = useState('');
-    const [selectedClass, setSelectedClass] = useState<string>('');
     const [error, setError] = useState('');
     const [feedback, setFeedback] = useState('');
     const [viewingRanking, setViewingRanking] = useState<CombinacaoTotalChallenge | null>(null);
@@ -97,12 +96,11 @@ export const CombinationTotalManager: React.FC<CombinationTotalManagerProps> = (
         if (possibleCombinations.length === 0) { setError('As regras atuais não geram nenhuma combinação. Verifique as restrições.'); return; }
 
         const result = await createCombinacaoTotalChallenge({
-            title: title.trim(), rules, totalCombinations: possibleCombinations.length, classCode: selectedClass
+            title: title.trim(), rules, totalCombinations: possibleCombinations.length, classCode: selectedClass.classCode
         });
 
         if (result.status === 'success') {
             setTitle(''); 
-            setSelectedClass('');
             setFeedback('Desafio de Combinação Total criado com sucesso!');
             setTimeout(() => setFeedback(''), 3000);
         } else {
@@ -110,7 +108,7 @@ export const CombinationTotalManager: React.FC<CombinationTotalManagerProps> = (
         }
     };
     
-    const myChallenges = combinacaoTotalChallenges.filter(c => c.creatorName === user.name);
+    const myChallenges = combinacaoTotalChallenges.filter(c => c.creatorName === user.name && c.classCode === selectedClass.classCode);
 
     return (
         <>
@@ -120,10 +118,6 @@ export const CombinationTotalManager: React.FC<CombinationTotalManagerProps> = (
                     <h2 className="text-xl font-bold text-sky-300 mb-4">Criar Desafio de Combinação</h2>
                     <div className="space-y-3">
                         <input type="text" placeholder="Título do Desafio" value={title} onChange={e => setTitle(e.target.value)} className="w-full p-2 bg-slate-800 rounded" />
-                        <select value={selectedClass} onChange={e => setSelectedClass(e.target.value)} className="w-full p-2 bg-slate-800 rounded">
-                            <option value="" disabled>Selecione uma turma</option>
-                            {teacherClasses.map(c => <option key={c.classCode} value={c.classCode}>{c.className}</option>)}
-                        </select>
                         <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                             <div>
                                 <label className="text-sm">Nº de Posições: {rules.digitCount}</label>
@@ -150,11 +144,11 @@ export const CombinationTotalManager: React.FC<CombinationTotalManagerProps> = (
                 <div className="bg-slate-900/70 p-6 rounded-lg">
                     <h2 className="text-xl font-bold text-sky-300 mb-4">Desafios Criados</h2>
                     <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
-                        {myChallenges.map(c => (
+                        {myChallenges.length > 0 ? myChallenges.map(c => (
                             <div key={c.id} className="p-3 bg-slate-800 rounded">
                                 <div className="flex justify-between items-start">
                                     <div>
-                                        <h3 className="font-bold">{c.title} ({c.classCode})</h3>
+                                        <h3 className="font-bold">{c.title}</h3>
                                         <p className="text-xs text-slate-400">{c.totalCombinations} combinações</p>
                                     </div>
                                     <span className={`px-2 py-0.5 text-xs rounded-full ${c.status === 'locked' ? 'bg-red-800 text-red-300' : 'bg-green-800 text-green-300'}`}>{c.status}</span>
@@ -166,7 +160,7 @@ export const CombinationTotalManager: React.FC<CombinationTotalManagerProps> = (
                                     <button onClick={() => deleteCombinacaoTotalChallenge(c.id)} className="px-2 py-1 bg-red-700 rounded">Deletar</button>
                                 </div>
                             </div>
-                        ))}
+                        )) : <p className="text-slate-400 text-center">Nenhum desafio criado para esta turma.</p>}
                     </div>
                 </div>
             </div>
