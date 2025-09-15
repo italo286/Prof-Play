@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback, useContext, useRef, useMemo } from 'react';
-import type { PasswordChallenge, GameStat } from '../types';
+import type { PasswordChallenge, GameStat, MessageType } from '../types';
 import { AuthContext } from '../contexts/AuthContext';
 import { GameDataContext } from '../contexts/GameDataContext';
 import { ProfileContext } from '../contexts/ProfileContext';
 import { playSuccessSound, playErrorSound } from '../utils/audio';
+import { MessageDisplay } from './MessageDisplay';
 
 const GAME_ID = 'password_unlock';
 
@@ -151,9 +152,9 @@ const CompletionRankingScreen: React.FC<{
                 }
                 const attempts = stats.successFirstTry + stats.successOther + stats.errors;
                 const completionTime = getJsDateFromTimestamp(stats.completionTimestamp);
-                return { name: student.name, attempts, completionTime };
+                return { name: student.name, avatar: student.avatar, attempts, completionTime };
             })
-            .filter((s): s is { name: string; attempts: number; completionTime: Date } => !!s && !!s.completionTime)
+            .filter((s): s is { name: string; avatar: string | undefined; attempts: number; completionTime: Date } => !!s && !!s.completionTime)
             .sort((a, b) => a.completionTime.getTime() - b.completionTime.getTime());
     }, [user, getStudentsInClass, gameId, lastUpdated]);
 
@@ -170,6 +171,7 @@ const CompletionRankingScreen: React.FC<{
                              return (
                                 <li key={student.name} className={`flex items-center gap-3 p-2 rounded ${isCurrentUser ? 'bg-sky-800 border-2 border-sky-500' : 'bg-slate-800'}`}>
                                     <span className={`w-6 text-center font-bold ${index < 3 ? 'text-yellow-400' : 'text-slate-400'}`}>{index + 1}</span>
+                                    {student.avatar && <img src={student.avatar} alt={`Avatar de ${student.name}`} className="w-8 h-8 rounded-full bg-slate-700"/>}
                                     <span className="font-semibold text-slate-100 flex-grow">{student.name}</span>
                                     <span className="text-sm font-mono text-slate-300">{student.attempts} tentativa(s)</span>
                                 </li>
@@ -202,6 +204,17 @@ export const DescubraASenhaGame: React.FC<DescubraASenhaGameProps> = ({ onReturn
   const [gameOver, setGameOver] = useState(false);
   const [isFirstAttempt, setIsFirstAttempt] = useState(true);
   const [timeElapsed, setTimeElapsed] = useState('00:00');
+  const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState<MessageType>('info');
+  const messageTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (messageTimeoutRef.current) {
+        clearTimeout(messageTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (gameOver || !selectedChallenge?.unlockedTimestamp) return;
@@ -221,16 +234,31 @@ export const DescubraASenhaGame: React.FC<DescubraASenhaGameProps> = ({ onReturn
 
     return () => clearInterval(interval);
   }, [selectedChallenge, gameOver]);
+  
+  const showTemporaryMessage = useCallback((text: string, type: MessageType, duration: number = 3000) => {
+    if (messageTimeoutRef.current) {
+      clearTimeout(messageTimeoutRef.current);
+    }
+    setMessage(text);
+    setMessageType(type);
+    messageTimeoutRef.current = window.setTimeout(() => {
+      setMessage('');
+    }, duration);
+  }, []);
 
   const handleSelectChallenge = (challenge: PasswordChallenge) => {
     setSelectedChallenge(challenge);
     setGameOver(false);
     setGuesses([]);
     setIsFirstAttempt(true);
+    if (messageTimeoutRef.current) clearTimeout(messageTimeoutRef.current);
+    setMessage('');
   };
 
   const handleGuess = (guess: string) => {
     if (!selectedChallenge) return;
+
+    if (messageTimeoutRef.current) clearTimeout(messageTimeoutRef.current);
 
     const correctCount = calculateCorrectPositionCount(guess, selectedChallenge.password);
     setGuesses(prev => [...prev, { guess, correctCount }]);
@@ -243,6 +271,7 @@ export const DescubraASenhaGame: React.FC<DescubraASenhaGameProps> = ({ onReturn
         playErrorSound();
         logAttempt(`${GAME_ID}_${selectedChallenge.id}`, false, false);
         setIsFirstAttempt(false);
+        showTemporaryMessage('Combinação incorreta. Tente novamente!', 'error');
     }
   };
   
@@ -281,6 +310,9 @@ export const DescubraASenhaGame: React.FC<DescubraASenhaGameProps> = ({ onReturn
                     <p className="text-center text-slate-400 py-8">Nenhum desafio ativo para sua turma no momento. Fale com seu professor!</p>
                 )}
             </div>
+            <footer className="text-center text-sm text-slate-400 mt-8">
+                <p>Desenvolvido por Ítalo Natan – 2025</p>
+            </footer>
         </div>
       </div>
     );
@@ -291,6 +323,9 @@ export const DescubraASenhaGame: React.FC<DescubraASenhaGameProps> = ({ onReturn
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-slate-200">
         <div className="relative bg-slate-800 shadow-2xl rounded-xl p-6 md:p-8 w-full max-w-2xl">
             <CompletionRankingScreen challenge={selectedChallenge} onReturnToMenu={onReturnToMenu} />
+             <footer className="text-center text-sm text-slate-400 mt-8">
+                <p>Desenvolvido por Ítalo Natan – 2025</p>
+            </footer>
         </div>
       </div>
     );
@@ -322,7 +357,13 @@ export const DescubraASenhaGame: React.FC<DescubraASenhaGameProps> = ({ onReturn
          <div className="p-2 bg-slate-900/70 rounded-lg mb-4">
             <GuessHistory guesses={guesses} />
          </div>
+         
+        {message && <MessageDisplay message={message} type={messageType} />}
+
         <GuessInput digitCount={selectedChallenge.digitCount} onGuess={handleGuess} disabled={gameOver} />
+        <footer className="text-center text-sm text-slate-400 mt-8">
+            <p>Desenvolvido por Ítalo Natan – 2025</p>
+        </footer>
       </div>
     </div>
   );

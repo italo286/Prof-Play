@@ -50,9 +50,9 @@ const CompletionScreen: React.FC<{
                 const stat = student.garrafasStats?.find(s => s.challengeId === challenge.id);
                 if (!stat || !stat.isComplete || !stat.completionTimestamp) return null;
                 const completionTime = getJsDateFromTimestamp(stat.completionTimestamp);
-                return { name: student.name, attempts: stat.attempts, completionTime };
+                return { name: student.name, avatar: student.avatar, attempts: stat.attempts, completionTime };
             })
-            .filter((s): s is { name: string; attempts: number; completionTime: Date } => !!s)
+            .filter((s): s is { name: string; avatar: string | undefined; attempts: number; completionTime: Date } => !!s)
             .sort((a, b) => a.completionTime.getTime() - b.completionTime.getTime());
     }, [user, getStudentsInClass, challenge.id]);
 
@@ -66,6 +66,7 @@ const CompletionScreen: React.FC<{
                         {rankedStudents.map((student, index) => (
                              <li key={student.name} className={`flex items-center gap-3 p-2 rounded ${student.name === user?.name ? 'bg-sky-800' : 'bg-slate-800'}`}>
                                 <span className={`w-6 text-center font-bold ${index < 3 ? 'text-yellow-400' : 'text-slate-400'}`}>{index + 1}</span>
+                                {student.avatar && <img src={student.avatar} alt={`Avatar de ${student.name}`} className="w-8 h-8 rounded-full bg-slate-700"/>}
                                 <span className="font-semibold text-slate-100 flex-grow">{student.name}</span>
                                 <span className="text-sm font-mono text-slate-300">{student.attempts} trocas</span>
                              </li>
@@ -189,6 +190,9 @@ export const GarrafasGame: React.FC<{ onReturnToMenu: () => void }> = ({ onRetur
                             </div>
                         )) : <p className="text-center text-slate-400 py-8">Nenhum desafio ativo para sua turma.</p>}
                     </div>
+                    <footer className="text-center text-sm text-slate-400 mt-8">
+                        <p>Desenvolvido por Ítalo Natan – 2025</p>
+                    </footer>
                 </div>
             </div>
         );
@@ -204,6 +208,9 @@ export const GarrafasGame: React.FC<{ onReturnToMenu: () => void }> = ({ onRetur
                     <h1 className="text-3xl font-bold text-sky-400">{selectedChallenge.title}</h1>
                 </header>
                 <GameView challenge={selectedChallenge} onBack={() => setSelectedChallenge(null)} />
+                <footer className="text-center text-sm text-slate-400 mt-8">
+                    <p>Desenvolvido por Ítalo Natan – 2025</p>
+                </footer>
             </div>
         </div>
     );

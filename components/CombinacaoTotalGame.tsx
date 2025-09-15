@@ -38,9 +38,9 @@ const CombinationTotalCompletionScreen: React.FC<{
                     return null;
                 }
                 const completionTime = getJsDateFromTimestamp(stat.completionTimestamp);
-                return { name: student.name, completionTime };
+                return { name: student.name, avatar: student.avatar, completionTime };
             })
-            .filter((s): s is { name: string; completionTime: Date } => !!s && !!s.completionTime)
+            .filter((s): s is { name: string; avatar: string | undefined; completionTime: Date } => !!s && !!s.completionTime)
             .sort((a, b) => a.completionTime.getTime() - b.completionTime.getTime());
     }, [user, getStudentsInClass, challenge.id, lastUpdated]);
 
@@ -57,6 +57,7 @@ const CombinationTotalCompletionScreen: React.FC<{
                              return (
                                 <li key={student.name} className={`flex items-center gap-3 p-2 rounded ${isCurrentUser ? 'bg-sky-800 border-2 border-sky-500' : 'bg-slate-800'}`}>
                                     <span className={`w-6 text-center font-bold ${index < 3 ? 'text-yellow-400' : 'text-slate-400'}`}>{index + 1}</span>
+                                    {student.avatar && <img src={student.avatar} alt={`Avatar de ${student.name}`} className="w-8 h-8 rounded-full bg-slate-700"/>}
                                     <span className="font-semibold text-slate-100 flex-grow">{student.name}</span>
                                     <span className="text-sm text-slate-300">{student.completionTime.toLocaleString('pt-BR')}</span>
                                 </li>
@@ -281,6 +282,9 @@ export const CombinacaoTotalGame: React.FC<{ onReturnToMenu: () => void }> = ({ 
                         )}
                     </div>
                 )}
+                 <footer className="text-center text-sm text-slate-400 mt-8">
+                    <p>Desenvolvido por Ítalo Natan – 2025</p>
+                </footer>
             </div>
         </div>
     );
