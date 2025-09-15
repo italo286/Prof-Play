@@ -40,6 +40,12 @@ const CompletionScreen: React.FC<{
 }> = ({ challenge, onBack }) => {
     const { user } = useContext(AuthContext);
     const { allUsers } = useContext(GameDataContext);
+    const [lastUpdated, setLastUpdated] = useState(Date.now());
+
+    useEffect(() => {
+        const timer = setInterval(() => setLastUpdated(Date.now()), 5000); // Poll for updates
+        return () => clearInterval(timer);
+    }, []);
 
     const rankedStudents = useMemo(() => {
         if (!user || !user.classCode) return [];
@@ -54,7 +60,7 @@ const CompletionScreen: React.FC<{
             })
             .filter((s): s is { name: string; avatar: string | undefined; attempts: number; completionTime: Date } => !!s)
             .sort((a, b) => a.completionTime.getTime() - b.completionTime.getTime());
-    }, [user, allUsers, challenge.id]);
+    }, [user, allUsers, challenge.id, lastUpdated]);
 
     return (
         <div className="text-center py-6 flex flex-col justify-center items-center gap-4 animate-fade-in-down">

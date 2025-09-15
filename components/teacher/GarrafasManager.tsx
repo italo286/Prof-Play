@@ -12,6 +12,12 @@ const getJsDateFromTimestamp = (timestamp: any): Date | null => {
 
 const RankingModal: React.FC<{ challenge: GarrafasChallenge | null; onClose: () => void; }> = ({ challenge, onClose }) => {
     const { allUsers } = useContext(GameDataContext);
+    const [lastUpdated, setLastUpdated] = useState(Date.now());
+
+    useEffect(() => {
+        const timer = setInterval(() => setLastUpdated(Date.now()), 5000); // Poll for updates
+        return () => clearInterval(timer);
+    }, []);
 
     const { completedStudents, inProgressStudents } = useMemo(() => {
         if (!challenge) return { completedStudents: [], inProgressStudents: [] };
@@ -31,7 +37,7 @@ const RankingModal: React.FC<{ challenge: GarrafasChallenge | null; onClose: () 
             .sort((a, b) => b.attempts - a.attempts); // Sort by most attempts first
 
         return { completedStudents: completed, inProgressStudents: inProgress };
-    }, [challenge, allUsers]);
+    }, [challenge, allUsers, lastUpdated]);
 
 
     if (!challenge) return null;
