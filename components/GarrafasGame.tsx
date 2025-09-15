@@ -39,17 +39,11 @@ const CompletionScreen: React.FC<{
   onBack: () => void;
 }> = ({ challenge, onBack }) => {
     const { user } = useContext(AuthContext);
-    const { getStudentsInClass } = useContext(GameDataContext);
-    const [lastUpdated, setLastUpdated] = useState(Date.now());
-
-    useEffect(() => {
-        const timer = setInterval(() => setLastUpdated(Date.now()), 5000); // Poll for updates
-        return () => clearInterval(timer);
-    }, []);
+    const { allUsers } = useContext(GameDataContext);
 
     const rankedStudents = useMemo(() => {
         if (!user || !user.classCode) return [];
-        const classmates = getStudentsInClass(user.classCode);
+        const classmates = allUsers.filter(p => p.role === 'student' && p.classCode === user.classCode);
         
         return classmates
             .map(student => {
@@ -60,7 +54,7 @@ const CompletionScreen: React.FC<{
             })
             .filter((s): s is { name: string; avatar: string | undefined; attempts: number; completionTime: Date } => !!s)
             .sort((a, b) => a.completionTime.getTime() - b.completionTime.getTime());
-    }, [user, getStudentsInClass, challenge.id, lastUpdated]);
+    }, [user, allUsers, challenge.id]);
 
     return (
         <div className="text-center py-6 flex flex-col justify-center items-center gap-4 animate-fade-in-down">
@@ -70,7 +64,7 @@ const CompletionScreen: React.FC<{
                 {rankedStudents.length > 0 ? (
                     <ol className="space-y-2 text-left">
                         {rankedStudents.map((student, index) => (
-                             <li key={student.name} className={`flex items-center gap-3 p-2 rounded ${student.name === user?.name ? 'bg-sky-800' : 'bg-slate-800'}`}>
+                             <li key={student.name} className={`flex items-center gap-3 p-2 rounded ${student.name === user?.name ? 'bg-sky-800 border-2 border-sky-500' : 'bg-slate-800'}`}>
                                 <span className={`w-6 text-center font-bold ${index < 3 ? 'text-yellow-400' : 'text-slate-400'}`}>{index + 1}</span>
                                 {student.avatar && <img src={student.avatar} alt={`Avatar de ${student.name}`} className="w-8 h-8 rounded-full bg-slate-700"/>}
                                 <span className="font-semibold text-slate-100 flex-grow">{student.name}</span>

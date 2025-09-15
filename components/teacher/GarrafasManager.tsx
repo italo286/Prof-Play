@@ -11,18 +11,11 @@ const getJsDateFromTimestamp = (timestamp: any): Date | null => {
 };
 
 const RankingModal: React.FC<{ challenge: GarrafasChallenge | null; onClose: () => void; }> = ({ challenge, onClose }) => {
-    const { getStudentsInClass } = useContext(GameDataContext);
-    const [lastUpdated, setLastUpdated] = useState(Date.now());
-
-    useEffect(() => {
-        if (!challenge) return; // Only run when modal is open
-        const timer = setInterval(() => setLastUpdated(Date.now()), 5000); // Poll for updates
-        return () => clearInterval(timer);
-    }, [challenge]);
+    const { allUsers } = useContext(GameDataContext);
 
     const { completedStudents, inProgressStudents } = useMemo(() => {
         if (!challenge) return { completedStudents: [], inProgressStudents: [] };
-        const classmates = getStudentsInClass(challenge.classCode);
+        const classmates = allUsers.filter(p => p.role === 'student' && p.classCode === challenge.classCode);
         
         const allStudentStats = classmates.map(student => {
             const stat = student.garrafasStats?.find(s => s.challengeId === challenge.id);
@@ -38,7 +31,7 @@ const RankingModal: React.FC<{ challenge: GarrafasChallenge | null; onClose: () 
             .sort((a, b) => b.attempts - a.attempts); // Sort by most attempts first
 
         return { completedStudents: completed, inProgressStudents: inProgress };
-    }, [challenge, getStudentsInClass, lastUpdated]);
+    }, [challenge, allUsers]);
 
 
     if (!challenge) return null;
@@ -65,7 +58,7 @@ const RankingModal: React.FC<{ challenge: GarrafasChallenge | null; onClose: () 
                                 </li>
                             ))}
                         </ol>
-                    ) : <p className="text-slate-500 text-sm mb-4">Ninguém completou o desafio ainda.</p>}
+                    ) : <p className="text-slate-500 text-sm mb-4">Nenhum aluno completou o desafio ainda.</p>}
 
                     {/* In Progress Section */}
                     <h3 className="font-bold text-lg text-amber-400 mb-2">Em Progresso ({inProgressStudents.length})</h3>
