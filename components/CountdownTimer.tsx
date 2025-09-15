@@ -53,8 +53,17 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
 
     // Calculate timeLeft on every render to ensure accuracy
     const now = Date.now();
-    const elapsed = serverStartTime ? Math.floor((now - serverStartTime) / 1000) : duration;
-    const timeLeft = Math.max(0, duration - elapsed);
+    const elapsed = serverStartTime ? Math.floor((now - serverStartTime) / 1000) : 0;
+    
+    // This is the raw calculation, which can be > duration if client clock is behind server.
+    let timeLeft = Math.max(0, duration - elapsed);
+
+    // If elapsed is negative, it means the client's clock is behind the server's start time.
+    // In this case, we cap the display at the full duration to avoid showing confusing times like "41s" on a 30s timer.
+    // The timer will appear to "pause" until the client clock catches up to the start time.
+    if (elapsed < 0) {
+        timeLeft = duration;
+    }
 
     const percentage = duration > 0 ? (timeLeft / duration) * 100 : 0;
     const barColor = timeLeft <= 10 ? 'bg-red-500' : timeLeft <= 20 ? 'bg-yellow-400' : 'bg-green-400';
