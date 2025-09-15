@@ -67,7 +67,7 @@ const RankingModal: React.FC<{ challenge: GarrafasChallenge | null; onClose: () 
                                         <span className="font-semibold text-slate-100">{student.name}</span>
                                         <span className="block text-xs text-slate-400">{student.completionTime?.toLocaleString('pt-BR')}</span>
                                     </div>
-                                    <span className="text-sm font-mono text-slate-300">{student.attempts} trocas</span>
+                                    <span className="text-sm font-mono text-slate-300">{student.attempts} tentativa(s)</span>
                                 </li>
                             ))}
                         </ol>
@@ -82,7 +82,7 @@ const RankingModal: React.FC<{ challenge: GarrafasChallenge | null; onClose: () 
                                     <div className="w-6 text-center text-slate-500"><i className="fas fa-hourglass-half"></i></div>
                                     {student.avatar && <img src={student.avatar} alt={student.name} className="w-8 h-8 rounded-full"/>}
                                     <span className="font-semibold text-slate-100 flex-grow">{student.name}</span>
-                                    <span className="text-sm font-mono text-slate-300">{student.attempts} trocas</span>
+                                    <span className="text-sm font-mono text-slate-300">{student.attempts} tentativa(s)</span>
                                 </li>
                             ))}
                         </ul>

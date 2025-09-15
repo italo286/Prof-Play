@@ -83,7 +83,7 @@ const CompletionScreen: React.FC<{
                                 <span className={`w-6 text-center font-bold ${index < 3 ? 'text-yellow-400' : 'text-slate-400'}`}>{index + 1}</span>
                                 {student.avatar && <img src={student.avatar} alt={`Avatar de ${student.name}`} className="w-8 h-8 rounded-full bg-slate-700"/>}
                                 <span className="font-semibold text-slate-100 flex-grow">{student.name}</span>
-                                <span className="text-sm font-mono text-slate-300">{student.attempts} trocas</span>
+                                <span className="text-sm font-mono text-slate-300">{student.attempts} tentativa(s)</span>
                              </li>
                         ))}
                     </ol>
@@ -105,12 +105,12 @@ const GameView: React.FC<{ challenge: GarrafasChallenge, onBack: () => void }> =
         return shuffled;
     });
     const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-    const [attempts, setAttempts] = useState(0);
     const [message, setMessage] = useState('');
     const [messageType, setMessageType] = useState<MessageType>('info');
 
     const myStat = useMemo(() => user?.garrafasStats?.find(s => s.challengeId === challenge.id), [user, challenge.id]);
     const [isComplete, setIsComplete] = useState(myStat?.isComplete || false);
+    const [checkCount, setCheckCount] = useState(myStat?.attempts || 0);
 
     useEffect(() => {
         if (myStat?.isComplete) {
@@ -131,14 +131,17 @@ const GameView: React.FC<{ challenge: GarrafasChallenge, onBack: () => void }> =
             [newOrder[selectedIndex], newOrder[index]] = [newOrder[index], newOrder[selectedIndex]];
             setCurrentOrder(newOrder);
             setSelectedIndex(null);
-            setAttempts(prev => prev + 1);
         }
     };
     
     const handleCheck = () => {
         if (isComplete) return;
+
+        const newCheckCount = checkCount + 1;
+        setCheckCount(newCheckCount);
+
         const isCorrect = arraysEqual(currentOrder, challenge.correctOrder);
-        logGarrafasAttempt(challenge.id, attempts + 1, isCorrect);
+        logGarrafasAttempt(challenge.id, newCheckCount, isCorrect);
         
         if (isCorrect) {
             playSuccessSound();
