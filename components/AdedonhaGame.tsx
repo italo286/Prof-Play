@@ -2,42 +2,13 @@ import React, { useState, useEffect, useContext, useMemo } from 'react';
 import { AuthContext } from '../contexts/AuthContext';
 import { GameDataContext } from '../contexts/GameDataContext';
 import { playSuccessSound } from '../utils/audio';
+import { CountdownTimer } from './CountdownTimer';
 
 const getJsDateFromTimestamp = (timestamp: any): Date | null => {
     if (!timestamp) return null;
     if (typeof timestamp.toDate === 'function') return timestamp.toDate();
     if (typeof timestamp.seconds === 'number') return new Date(timestamp.seconds * 1000);
     return null;
-};
-
-const CountdownTimer: React.FC<{ startTime: any, duration: number }> = ({ startTime, duration }) => {
-    const [timeLeft, setTimeLeft] = useState(duration);
-
-    useEffect(() => {
-        const serverStartTime = getJsDateFromTimestamp(startTime)?.getTime();
-        if (!serverStartTime) return;
-
-        const interval = setInterval(() => {
-            const now = Date.now();
-            const elapsed = Math.floor((now - serverStartTime) / 1000);
-            const remaining = duration - elapsed;
-            setTimeLeft(Math.max(0, remaining));
-        }, 500);
-
-        return () => clearInterval(interval);
-    }, [startTime, duration]);
-
-    const percentage = (timeLeft / duration) * 100;
-    const barColor = timeLeft <= 10 ? 'bg-red-500' : timeLeft <= 20 ? 'bg-yellow-400' : 'bg-green-400';
-
-    return (
-        <div className="w-full">
-            <div className="text-center font-mono text-2xl font-bold mb-1">{timeLeft}s</div>
-            <div className="w-full bg-slate-600 rounded-full h-2.5">
-                <div className={`${barColor} h-2.5 rounded-full transition-all duration-500`} style={{width: `${percentage}%`}}></div>
-            </div>
-        </div>
-    );
 };
 
 const LetterSpinner: React.FC<{ letter: string, onRevealed: () => void }> = ({ letter, onRevealed }) => {

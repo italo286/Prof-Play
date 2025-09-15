@@ -1,31 +1,13 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
 import { GameDataContext } from '../../contexts/GameDataContext';
 import type { ClassData, AdedonhaSession, AdedonhaSubmission } from '../../types';
+import { CountdownTimer } from '../CountdownTimer';
 
 const getJsDateFromTimestamp = (timestamp: any): Date | null => {
     if (!timestamp) return null;
     if (typeof timestamp.toDate === 'function') return timestamp.toDate();
     if (typeof timestamp.seconds === 'number') return new Date(timestamp.seconds * 1000);
     return null;
-};
-
-const CountdownTimer: React.FC<{ startTime: any, duration: number }> = ({ startTime, duration }) => {
-    const [timeLeft, setTimeLeft] = useState(duration);
-
-    useEffect(() => {
-        const serverStartTime = getJsDateFromTimestamp(startTime)?.getTime();
-        if (!serverStartTime) return;
-        const interval = setInterval(() => {
-            const now = Date.now();
-            const elapsed = Math.floor((now - serverStartTime) / 1000);
-            const remaining = duration - elapsed;
-            setTimeLeft(Math.max(0, remaining));
-        }, 500);
-        return () => clearInterval(interval);
-    }, [startTime, duration]);
-
-    const color = timeLeft <= 10 ? 'text-red-500' : timeLeft <= 20 ? 'text-yellow-400' : 'text-green-400';
-    return <div className={`text-4xl font-mono font-bold ${color}`}>{timeLeft}s</div>;
 };
 
 const AdedonhaSessionView: React.FC<{ session: AdedonhaSession, onEnd: (session: AdedonhaSession) => void, onGoBackToLobby?: () => void }> = ({ session, onEnd, onGoBackToLobby }) => {
@@ -129,7 +111,13 @@ const AdedonhaSessionView: React.FC<{ session: AdedonhaSession, onEnd: (session:
              return (
                 <div className="text-center bg-slate-700 p-6 rounded-lg shadow-inner">
                     <h3 className="text-lg font-bold text-cyan-300 mb-2">Rodada em Andamento</h3>
-                    <CountdownTimer key={activeAdedonhaRound.id} startTime={activeAdedonhaRound.startTime} duration={activeAdedonhaRound.duration} />
+                    <CountdownTimer 
+                        key={activeAdedonhaRound.id} 
+                        startTime={activeAdedonhaRound.startTime} 
+                        duration={activeAdedonhaRound.duration} 
+                        showProgressBar={false}
+                        textClassName="text-4xl"
+                    />
                     <p>Tema: <span className="font-bold">{activeAdedonhaRound.theme}</span> 
                         {session.type === 'simples' && ` | Letra: `}
                         {session.type === 'simples' && <span className="font-bold">{activeAdedonhaRound.letter}</span>}
