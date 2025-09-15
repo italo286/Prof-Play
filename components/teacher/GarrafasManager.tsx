@@ -11,7 +11,7 @@ const getJsDateFromTimestamp = (timestamp: any): Date | null => {
 };
 
 const RankingModal: React.FC<{ challenge: GarrafasChallenge | null; onClose: () => void; }> = ({ challenge, onClose }) => {
-    const { allUsers } = useContext(GameDataContext);
+    const { getStudentsInClass } = useContext(GameDataContext);
     const [lastUpdated, setLastUpdated] = useState(Date.now());
 
     useEffect(() => {
@@ -21,7 +21,7 @@ const RankingModal: React.FC<{ challenge: GarrafasChallenge | null; onClose: () 
 
     const { completedStudents, inProgressStudents } = useMemo(() => {
         if (!challenge) return { completedStudents: [], inProgressStudents: [] };
-        const classmates = allUsers.filter(p => p.role === 'student' && p.classCode === challenge.classCode);
+        const classmates = getStudentsInClass(challenge.classCode);
         
         const allStudentStats = classmates.map(student => {
             const stat = student.garrafasStats?.find(s => s.challengeId === challenge.id);
@@ -35,9 +35,16 @@ const RankingModal: React.FC<{ challenge: GarrafasChallenge | null; onClose: () 
         const inProgress = allStudentStats
             .filter(s => !s.isComplete)
             .sort((a, b) => b.attempts - a.attempts); // Sort by most attempts first
+        
+        console.log('[Professor] Verificando ranking Garrafas:', { 
+            timestamp: new Date().toLocaleTimeString(),
+            challengeId: challenge.id,
+            totalAlunosNaTurma: classmates.length,
+            alunosCompletos: completed.length
+        });
 
         return { completedStudents: completed, inProgressStudents: inProgress };
-    }, [challenge, allUsers, lastUpdated]);
+    }, [challenge, getStudentsInClass, lastUpdated]);
 
 
     if (!challenge) return null;

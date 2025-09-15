@@ -39,7 +39,7 @@ const CompletionScreen: React.FC<{
   onBack: () => void;
 }> = ({ challenge, onBack }) => {
     const { user } = useContext(AuthContext);
-    const { allUsers } = useContext(GameDataContext);
+    const { getStudentsInClass } = useContext(GameDataContext);
     const [lastUpdated, setLastUpdated] = useState(Date.now());
 
     useEffect(() => {
@@ -49,9 +49,9 @@ const CompletionScreen: React.FC<{
 
     const rankedStudents = useMemo(() => {
         if (!user || !user.classCode) return [];
-        const classmates = allUsers.filter(p => p.role === 'student' && p.classCode === user.classCode);
+        const classmates = getStudentsInClass(user.classCode);
         
-        return classmates
+        const completedStudents = classmates
             .map(student => {
                 const stat = student.garrafasStats?.find(s => s.challengeId === challenge.id);
                 if (!stat || !stat.isComplete || !stat.completionTimestamp) return null;
@@ -60,7 +60,16 @@ const CompletionScreen: React.FC<{
             })
             .filter((s): s is { name: string; avatar: string | undefined; attempts: number; completionTime: Date } => !!s)
             .sort((a, b) => a.completionTime.getTime() - b.completionTime.getTime());
-    }, [user, allUsers, challenge.id, lastUpdated]);
+
+        console.log('[Aluno] Verificando ranking Garrafas:', { 
+            timestamp: new Date().toLocaleTimeString(),
+            challengeId: challenge.id,
+            totalAlunosNaTurma: classmates.length,
+            alunosCompletos: completedStudents.length
+        });
+
+        return completedStudents;
+    }, [user, getStudentsInClass, challenge.id, lastUpdated]);
 
     return (
         <div className="text-center py-6 flex flex-col justify-center items-center gap-4 animate-fade-in-down">
