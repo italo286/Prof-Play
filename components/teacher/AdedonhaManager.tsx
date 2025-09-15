@@ -22,26 +22,6 @@ const AdedonhaSessionView: React.FC<{ session: AdedonhaSession, onEnd: (session:
     const studentsInClass = useMemo(() => getStudentsInClass(session.classCode), [session.classCode, getStudentsInClass]);
     const avatarMap = useMemo(() => new Map(studentsInClass.map(s => [s.name, s.avatar])), [studentsInClass]);
 
-    useEffect(() => {
-        if (activeAdedonhaRound?.status === 'playing' && activeAdedonhaRound.startTime) {
-            const startTime = getJsDateFromTimestamp(activeAdedonhaRound.startTime);
-            if (!startTime) return;
-            
-            const roundDuration = activeAdedonhaRound.duration;
-            const endTime = startTime.getTime() + roundDuration * 1000;
-            const remainingTime = endTime - Date.now();
-
-            if (remainingTime <= 0) {
-                endAdedonhaRoundForScoring(activeAdedonhaRound.id);
-            } else {
-                const timerId = setTimeout(() => {
-                    endAdedonhaRoundForScoring(activeAdedonhaRound.id);
-                }, remainingTime);
-                return () => clearTimeout(timerId);
-            }
-        }
-    }, [activeAdedonhaRound, endAdedonhaRoundForScoring]);
-
     const handleStartRound = () => {
         if (theme.trim() && (session.type === 'tapple' || letter.trim())) {
             startAdedonhaRound(session.id, theme.trim(), letter.trim().toUpperCase(), duration);
@@ -115,6 +95,7 @@ const AdedonhaSessionView: React.FC<{ session: AdedonhaSession, onEnd: (session:
                         key={activeAdedonhaRound.id} 
                         startTime={activeAdedonhaRound.startTime} 
                         duration={activeAdedonhaRound.duration} 
+                        onEnd={() => endAdedonhaRoundForScoring(activeAdedonhaRound.id)}
                         showProgressBar={false}
                         textClassName="text-4xl"
                     />

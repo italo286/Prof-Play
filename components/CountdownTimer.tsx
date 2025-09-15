@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 
 const getJsDateFromTimestamp = (timestamp: any): Date | null => {
     if (!timestamp) return null;
@@ -10,6 +10,7 @@ const getJsDateFromTimestamp = (timestamp: any): Date | null => {
 interface CountdownTimerProps {
     startTime: any;
     duration: number;
+    onEnd?: () => void;
     showProgressBar?: boolean;
     textClassName?: string;
 }
@@ -17,33 +18,42 @@ interface CountdownTimerProps {
 export const CountdownTimer: React.FC<CountdownTimerProps> = ({ 
     startTime, 
     duration, 
+    onEnd,
     showProgressBar = true, 
     textClassName = 'text-2xl' 
 }) => {
-    // We use this state just to trigger re-renders every 500ms
-    const [, setTick] = useState(0);
+    const [tick, setTick] = useState(0);
+    const onEndRef = useRef(onEnd);
+    onEndRef.current = onEnd;
 
     const serverStartTime = useMemo(() => getJsDateFromTimestamp(startTime)?.getTime(), [startTime]);
 
     useEffect(() => {
         if (!serverStartTime) return;
 
+        let isEnded = false;
+        
         const interval = setInterval(() => {
-            // If time is up, stop ticking
-            if (Date.now() > serverStartTime + duration * 1000) {
-                clearInterval(interval);
-            } else {
-                setTick(tick => tick + 1);
-            }
-        }, 500);
+            const now = Date.now();
+            const endTime = serverStartTime + duration * 1000;
 
+            if (now >= endTime) {
+                if (!isEnded) {
+                    isEnded = true;
+                    onEndRef.current?.();
+                }
+                clearInterval(interval);
+            }
+            // Trigger re-render to update the displayed time
+            setTick(t => t + 1);
+        }, 500);
 
         return () => clearInterval(interval);
     }, [serverStartTime, duration]);
 
-    // Calculate timeLeft on every render
+    // Calculate timeLeft on every render to ensure accuracy
     const now = Date.now();
-    const elapsed = serverStartTime ? Math.floor((now - serverStartTime) / 1000) : 0;
+    const elapsed = serverStartTime ? Math.floor((now - serverStartTime) / 1000) : duration;
     const timeLeft = Math.max(0, duration - elapsed);
 
     const percentage = duration > 0 ? (timeLeft / duration) * 100 : 0;

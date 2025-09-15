@@ -49,20 +49,6 @@ export const AdedonhaTappleGame: React.FC<{ onReturnToMenu: () => void }> = ({ o
             setInputError('');
         }
     }, [activeAdedonhaRound]);
-
-    useEffect(() => {
-        if (activeAdedonhaRound?.status !== 'playing') return;
-
-        const serverStartTime = getJsDateFromTimestamp(activeAdedonhaRound.startTime)?.getTime();
-        if (!serverStartTime) return;
-
-        const roundDuration = activeAdedonhaRound.duration || 30;
-        const timer = setTimeout(() => {
-            setTimeUp(true);
-        }, serverStartTime + roundDuration * 1000 - Date.now());
-
-        return () => clearTimeout(timer);
-    }, [activeAdedonhaRound]);
     
     useEffect(() => {
         if(answer) {
@@ -148,7 +134,7 @@ export const AdedonhaTappleGame: React.FC<{ onReturnToMenu: () => void }> = ({ o
         return (
             <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-slate-200">
                 <div className="relative bg-slate-800 shadow-2xl rounded-xl p-8 w-full max-w-md text-center">
-                    <CountdownTimer key={activeAdedonhaRound.id} startTime={activeAdedonhaRound.startTime} duration={activeAdedonhaRound.duration} />
+                    <CountdownTimer key={activeAdedonhaRound.id} startTime={activeAdedonhaRound.startTime} duration={activeAdedonhaRound.duration} onEnd={() => setTimeUp(true)} />
                     <div className="my-4">
                         <p className="text-slate-400 text-lg">Tema:</p>
                         <p className="text-2xl font-bold text-sky-300">{activeAdedonhaRound.theme}</p>
