@@ -205,11 +205,9 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const logGarrafasAttempt = useCallback(async (challengeId: string, attempts: number, isCorrect: boolean) => {
     if (!user) return;
-    // FIX: Switched to v8 syntax for doc()
     const userRef = db.doc(`users/${user.name}`);
 
     try {
-        // FIX: Switched to v8 syntax for runTransaction()
         await db.runTransaction(async (transaction) => {
             const userDoc = await transaction.get(userRef);
             if (!userDoc.exists) return;
@@ -221,12 +219,11 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
             if (statIndex > -1) {
                 const oldStat = existingStats[statIndex];
-                if (oldStat.isComplete) return; // Already completed
+                if (oldStat.isComplete) return;
                 const updatedStat = { ...oldStat, attempts };
-                 if (isCorrect) {
+                if (isCorrect) {
                     updatedStat.isComplete = true;
-                    // FIX: Switched to v8 syntax for serverTimestamp()
-                    updatedStat.completionTimestamp = firebase.firestore.FieldValue.serverTimestamp();
+                    updatedStat.completionTimestamp = new Date(); // Use client time, compatible with array updates
                 }
                 newStats = [...existingStats];
                 newStats[statIndex] = updatedStat;
@@ -234,8 +231,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
                 const newStat: GarrafasStat = { challengeId, attempts, isComplete: false };
                 if (isCorrect) {
                     newStat.isComplete = true;
-                    // FIX: Switched to v8 syntax for serverTimestamp()
-                    newStat.completionTimestamp = firebase.firestore.FieldValue.serverTimestamp();
+                    newStat.completionTimestamp = new Date(); // Use client time, compatible with array updates
                 }
                 newStats = [...existingStats, newStat];
             }
