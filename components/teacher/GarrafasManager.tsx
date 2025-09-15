@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useContext } from 'react';
+import React, { useState, useMemo, useContext, useEffect } from 'react';
 import { GameDataContext } from '../../contexts/GameDataContext';
 import type { UserProfile, ClassData, GarrafasChallenge } from '../../types';
 import { GARRAFAS_IMAGES } from '../../data/games';
@@ -12,6 +12,13 @@ const getJsDateFromTimestamp = (timestamp: any): Date | null => {
 
 const RankingModal: React.FC<{ challenge: GarrafasChallenge | null; onClose: () => void; }> = ({ challenge, onClose }) => {
     const { getStudentsInClass } = useContext(GameDataContext);
+    const [lastUpdated, setLastUpdated] = useState(Date.now());
+
+    useEffect(() => {
+        if (!challenge) return; // Only run when modal is open
+        const timer = setInterval(() => setLastUpdated(Date.now()), 5000); // Poll for updates
+        return () => clearInterval(timer);
+    }, [challenge]);
 
     const { completedStudents, inProgressStudents } = useMemo(() => {
         if (!challenge) return { completedStudents: [], inProgressStudents: [] };
@@ -31,7 +38,7 @@ const RankingModal: React.FC<{ challenge: GarrafasChallenge | null; onClose: () 
             .sort((a, b) => b.attempts - a.attempts); // Sort by most attempts first
 
         return { completedStudents: completed, inProgressStudents: inProgress };
-    }, [challenge, getStudentsInClass]);
+    }, [challenge, getStudentsInClass, lastUpdated]);
 
 
     if (!challenge) return null;
