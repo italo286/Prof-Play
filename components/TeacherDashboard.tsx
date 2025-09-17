@@ -313,7 +313,7 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
                                 <p className="text-sm text-slate-400">Código: <span className="font-mono">{c.classCode}</span></p>
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); setClassToDelete(c); }} 
-                                    className="absolute top-2 right-2 text-slate-500 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                                    className="absolute top-2 right-2 text-slate-500 hover:text-red-500 transition-colors"
                                     aria-label={`Excluir turma ${c.className}`}
                                 >
                                     <i className="fas fa-trash-alt"></i>
