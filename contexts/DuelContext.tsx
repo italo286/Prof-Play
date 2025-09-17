@@ -22,6 +22,9 @@ interface DuelContextType {
   handleDuelError: (duelId: string, progressToSet: number) => void;
   setDuelPassword: (duelId: string, passwordData: Omit<DuelPasswordPlayerState, 'guesses' | 'ready'>) => Promise<void>;
   submitDuelGuess: (duelId: string, guess: string) => Promise<void>;
+  forfeitDuel: (duelId: string) => Promise<void>;
+  setDuelGarrafasOrder: (duelId: string, order: number[]) => Promise<void>;
+  submitDuelGarrafasGuess: (duelId: string, guess: number[]) => Promise<void>;
 }
 
 export const DuelContext = createContext<DuelContextType>({} as DuelContextType);
@@ -33,6 +36,16 @@ const calculatePasswordGuess = (guess: string, password: string): number => {
     }
     return count;
 };
+
+const arraysEqual = (a: any[], b: any[]): boolean => {
+  if (a === b) return true;
+  if (a == null || b == null) return false;
+  if (a.length !== b.length) return false;
+  for (var i = 0; i < a.length; ++i) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
 
 export const DuelProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useContext(AuthContext);
@@ -119,17 +132,25 @@ export const DuelProvider: React.FC<{ children: React.ReactNode }> = ({ children
         { name: invitation.to, progress: 0, timeFinished: null }
     ];
     
+    const isSetupGame = ['descubra-a-senha', 'jogo-das-garrafas'].includes(invitation.gameMode);
+
     const newDuel: Omit<DuelState, 'id'> = {
         players,
         gameMode: invitation.gameMode,
         challenges,
-        status: invitation.gameMode === 'descubra-a-senha' ? 'setup' : 'starting',
+        status: isSetupGame ? 'setup' : 'starting',
         winner: null,
     };
     if (invitation.gameMode === 'descubra-a-senha') {
         newDuel.passwordGameState = {
             [invitation.from]: { password: '', rules: [], digitCount: 0, guesses: [], ready: false },
             [invitation.to]: { password: '', rules: [], digitCount: 0, guesses: [], ready: false }
+        }
+    }
+    if (invitation.gameMode === 'jogo-das-garrafas') {
+        newDuel.garrafasGameState = {
+            [invitation.from]: { correctOrder: [], guesses: [], ready: false },
+            [invitation.to]: { correctOrder: [], guesses: [], ready: false }
         }
     }
     await db.doc(`duels/${invitation.duelId}`).set(newDuel);
@@ -259,11 +280,72 @@ export const DuelProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }, [user, earnBadge]);
 
+  const forfeitDuel = useCallback(async (duelId: string) => {
+      if (!user) return;
+      const duelRef = db.doc(`duels/${duelId}`);
+      const doc = await duelRef.get();
+      if (!doc.exists) return;
+      const duel = doc.data() as DuelState;
+      const opponentName = duel.players.find(p => p.name !== user.name)?.name;
+      if (opponentName) {
+        await duelRef.update({ winner: opponentName, status: 'finished' });
+      }
+  }, [user]);
+
+  const setDuelGarrafasOrder = useCallback(async (duelId: string, order: number[]) => {
+      if (!user) return;
+      const duelRef = db.doc(`duels/${duelId}`);
+      const key = `garrafasGameState.${user.name}`;
+      await duelRef.update({
+          [`${key}.correctOrder`]: order,
+          [`${key}.guesses`]: [],
+          [`${key}.ready`]: true
+      });
+      // Check if both are ready to start
+      const duelDoc = await duelRef.get();
+      const duel = duelDoc.data() as DuelState;
+      const opponentName = duel.players.find(p => p.name !== user.name)?.name;
+      if (opponentName && duel.garrafasGameState?.[opponentName].ready) {
+          await duelRef.update({ status: 'playing' });
+      }
+  }, [user]);
+  
+  const submitDuelGarrafasGuess = useCallback(async (duelId: string, guess: number[]) => {
+      if (!user) return;
+      const duelRef = db.doc(`duels/${duelId}`);
+      await db.runTransaction(async (transaction) => {
+          const doc = await transaction.get(duelRef);
+          if (!doc.exists) return;
+          const duel = doc.data() as DuelState;
+          if (!duel.garrafasGameState) return;
+          const opponentName = duel.players.find(p => p.name !== user.name)?.name;
+          if (!opponentName) return;
+          
+          const opponentState = duel.garrafasGameState[opponentName];
+          const isCorrect = arraysEqual(guess, opponentState.correctOrder);
+          
+          const selfKey = `garrafasGameState.${user.name}.guesses`;
+          let correctCount = 0;
+          for(let i=0; i<guess.length; i++) {
+              if (guess[i] === opponentState.correctOrder[i]) correctCount++;
+          }
+          const newGuesses = firebase.firestore.FieldValue.arrayUnion({ guess, correctCount });
+          
+          if (isCorrect) {
+              transaction.update(duelRef, { [selfKey]: newGuesses, winner: user.name, status: 'finished' });
+              earnBadge('duelist');
+          } else {
+              transaction.update(duelRef, { [selfKey]: newGuesses });
+          }
+      });
+  }, [user, earnBadge]);
+
   const value = {
     invitations, activeDuel,
     sendDuelInvitation, answerDuelInvitation, cancelDuelInvitation,
     updateDuelProgress, finishDuel, clearActiveDuel, handleDuelError,
-    setDuelPassword, submitDuelGuess,
+    setDuelPassword, submitDuelGuess, forfeitDuel,
+    setDuelGarrafasOrder, submitDuelGarrafasGuess,
   };
 
   return <DuelContext.Provider value={value}>{children}</DuelContext.Provider>;

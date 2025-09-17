@@ -12,6 +12,8 @@ import { getSymmetryInstructionText, calculateSymmetricPoint } from './SimetriaP
 import type { Point, UserProfile, MessageType, SymmetryType, GeoPoint, DuelableGameMode } from '../types';
 import { playSuccessSound, playErrorSound, playDuelStartSound } from '../utils/audio';
 import { TOTAL_CHALLENGES, MIN_COORD, MAX_COORD } from '../data/duel';
+import { GARRAFAS_IMAGES } from '../data/games';
+import { ConfirmationModal } from './ConfirmationModal';
 
 interface DuelModeProps {
   onReturnToMenu: () => void;
@@ -23,6 +25,7 @@ const duelableGameModes: { id: DuelableGameMode; name: string }[] = [
     { id: 'simetria-pontos', name: 'Simetria de Pontos' },
     { id: 'coordenadas-geograficas', name: 'Coordenadas Geográficas' },
     { id: 'descubra-a-senha', name: 'Descubra a Senha' },
+    { id: 'jogo-das-garrafas', name: 'Jogo das Garrafas' },
 ];
 
 const getGameNameById = (id: DuelableGameMode) => {
@@ -233,6 +236,64 @@ const DuelPasswordSetup: React.FC = () => {
     );
 };
 
+const DuelGarrafasSetup: React.FC = () => {
+    const { user } = useContext(AuthContext);
+    const { activeDuel, setDuelGarrafasOrder } = useContext(DuelContext);
+    const [order, setOrder] = useState<number[]>([0,1,2,3,4,5]);
+    const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+
+    if (!user || !activeDuel || !activeDuel.garrafasGameState) return null;
+    
+    const selfState = activeDuel.garrafasGameState[user.name];
+
+    const handleBottleClick = (index: number) => {
+        if (selectedIndex === null) {
+            setSelectedIndex(index);
+        } else {
+            if (selectedIndex === index) {
+                setSelectedIndex(null);
+                return;
+            }
+            const newOrder = [...order];
+            [newOrder[selectedIndex], newOrder[index]] = [newOrder[index], newOrder[selectedIndex]];
+            setOrder(newOrder);
+            setSelectedIndex(null);
+        }
+    };
+
+    const handleSubmit = async () => {
+        await setDuelGarrafasOrder(activeDuel.id, order);
+    };
+
+    if (selfState.ready) {
+        return (
+            <div className="text-center p-8 animate-pulse">
+                <i className="fas fa-hourglass-half text-4xl text-sky-400 mb-4"></i>
+                <h3 className="text-xl font-bold">Ordem Definida!</h3>
+                <p>Aguardando oponente...</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="w-full max-w-lg p-4 flex flex-col items-center">
+            <h3 className="text-2xl font-bold text-center text-sky-300 mb-2">Defina a Ordem Secreta</h3>
+            <p className="text-sm text-slate-400 mb-4 text-center">Clique em duas garrafas para trocar de lugar. Seu oponente terá que adivinhar esta sequência.</p>
+            <div className="grid grid-cols-6 gap-2 md:gap-4 mb-6">
+                {order.map((bottleIndex, i) => (
+                    <div key={i} onClick={() => handleBottleClick(i)}
+                         className={`p-2 rounded-lg cursor-pointer transition-all ${selectedIndex === i ? 'bg-sky-500 scale-110 shadow-lg' : 'bg-slate-700/50 hover:bg-slate-600'}`}>
+                        <img src={GARRAFAS_IMAGES[bottleIndex]} alt={`Garrafa ${bottleIndex + 1}`} className="w-full h-auto"/>
+                    </div>
+                ))}
+            </div>
+            <button onClick={handleSubmit} className="w-full max-w-xs px-4 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-colors">
+                Confirmar Ordem
+            </button>
+        </div>
+    );
+};
+
 const DuelGuessHistory: React.FC<{ guesses: { guess: string, correctCount: number }[] }> = ({ guesses }) => {
     const lastGuessRef = useRef<HTMLDivElement>(null);
     useEffect(() => { lastGuessRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [guesses]);
@@ -281,10 +342,15 @@ const DuelGuessInput: React.FC<{ digitCount: number, onGuess: (guess: string) =>
 const DuelGame: React.FC = () => {
     const { user } = useContext(AuthContext);
     const { getAllUsers } = useContext(GameDataContext);
-    const { activeDuel, updateDuelProgress, finishDuel, handleDuelError, submitDuelGuess } = useContext(DuelContext);
+    const { activeDuel, updateDuelProgress, finishDuel, handleDuelError, submitDuelGuess, forfeitDuel, submitDuelGarrafasGuess } = useContext(DuelContext);
     const [startTime, setStartTime] = useState(0);
     const [userMessage, setUserMessage] = useState<string>('');
     const [messageType, setMessageType] = useState<MessageType>('info');
+    const [showForfeitConfirm, setShowForfeitConfirm] = useState(false);
+    
+    // For Garrafas game
+    const [garrafasOrder, setGarrafasOrder] = useState<number[]>([0,1,2,3,4,5]);
+    const [garrafasSelectedIndex, setGarrafasSelectedIndex] = useState<number | null>(null);
 
     const messageTimeoutRef = React.useRef<number | null>(null);
 
@@ -298,12 +364,10 @@ const DuelGame: React.FC = () => {
     }, []);
     
     useEffect(() => {
-        if (activeDuel?.status === 'starting' || (activeDuel?.status === 'playing' && activeDuel?.gameMode === 'descubra-a-senha' && startTime === 0)) {
+        if (activeDuel?.status === 'starting' || (activeDuel?.status === 'playing' && !['descubra-a-senha', 'jogo-das-garrafas'].includes(activeDuel.gameMode) && startTime === 0)) {
             playDuelStartSound();
             setStartTime(Date.now());
-            if (activeDuel.gameMode !== 'descubra-a-senha') {
-                updateDuelProgress(activeDuel.id, 0); // Signals ready
-            }
+            updateDuelProgress(activeDuel.id, 0); // Signals ready
             showTemporaryMessage('O Duelo Começou!', 'info', 2000);
         }
     }, [activeDuel?.status, activeDuel?.id, activeDuel?.gameMode, updateDuelProgress, showTemporaryMessage, startTime]);
@@ -350,14 +414,56 @@ const DuelGame: React.FC = () => {
     }, [activeDuel, currentChallengeIndex, handleDuelError, showTemporaryMessage]);
 
     const renderGameContent = () => {
-        if (currentChallengeIndex >= TOTAL_CHALLENGES && activeDuel.gameMode !== 'descubra-a-senha') {
+        if (currentChallengeIndex >= TOTAL_CHALLENGES && !['descubra-a-senha', 'jogo-das-garrafas'].includes(activeDuel.gameMode)) {
             return <p className="text-center text-xl text-green-400 font-bold p-8">Você terminou! Aguardando oponente...</p>
         }
-        if (!currentChallenge && activeDuel.gameMode !== 'descubra-a-senha') {
+        if (!currentChallenge && !['descubra-a-senha', 'jogo-das-garrafas'].includes(activeDuel.gameMode)) {
              return <p className="text-center text-xl text-sky-400 font-bold p-8 animate-pulse">Aguardando oponente...</p>
         }
 
         switch (activeDuel.gameMode) {
+            case 'jogo-das-garrafas': {
+                if (!activeDuel.garrafasGameState || !opponent) return <p>Erro no estado do jogo.</p>;
+                const selfState = activeDuel.garrafasGameState[user.name];
+                
+                const handleBottleClick = (index: number) => {
+                    if (garrafasSelectedIndex === null) { setGarrafasSelectedIndex(index); } 
+                    else {
+                        // FIX: Changed selectedIndex to garrafasSelectedIndex to match the state variable name.
+                        if (garrafasSelectedIndex === index) { setGarrafasSelectedIndex(null); return; }
+                        const newOrder = [...garrafasOrder];
+                        // FIX: Changed selectedIndex to garrafasSelectedIndex to match the state variable name.
+                        [newOrder[garrafasSelectedIndex], newOrder[index]] = [newOrder[index], newOrder[garrafasSelectedIndex]];
+                        setGarrafasOrder(newOrder);
+                        setGarrafasSelectedIndex(null);
+                    }
+                };
+
+                return (
+                    <div className="w-full max-w-lg flex flex-col items-center">
+                        <h4 className="text-lg font-bold text-center text-sky-300">Adivinhe a ordem de {opponent.name}</h4>
+                         <div className="grid grid-cols-6 gap-2 md:gap-4 my-4">
+                            {garrafasOrder.map((bottleIndex, i) => (
+                                <div key={i} onClick={() => handleBottleClick(i)} className={`p-2 rounded-lg cursor-pointer transition-all ${garrafasSelectedIndex === i ? 'bg-sky-500 scale-110 shadow-lg' : 'bg-slate-700/50 hover:bg-slate-600'}`}>
+                                    <img src={GARRAFAS_IMAGES[bottleIndex]} alt={`Garrafa ${bottleIndex + 1}`} className="w-full h-auto"/>
+                                </div>
+                            ))}
+                        </div>
+                        <button onClick={() => submitDuelGarrafasGuess(activeDuel.id, garrafasOrder)} className="px-8 py-3 bg-sky-600 text-white font-bold rounded-lg shadow-md hover:bg-sky-700">Verificar</button>
+                        <div className="mt-4 pt-4 border-t border-slate-700 w-full">
+                          <h5 className="font-bold text-center text-xs text-slate-300 mb-2">SEUS PALPITES</h5>
+                          <div className="w-full space-y-2 max-h-40 overflow-y-auto pr-2">
+                             {selfState.guesses.map((g, i) => (
+                                 <div key={i} className="flex justify-between items-center p-1 bg-slate-700/80 rounded-md">
+                                     <div className="flex gap-1">{g.guess.map(b_idx => <img key={b_idx} src={GARRAFAS_IMAGES[b_idx]} className="w-8 h-auto"/>)}</div>
+                                     <div className="text-right px-2"><p className="text-md font-bold text-sky-300">{g.correctCount}</p><p className="text-xs text-slate-400">correto(s)</p></div>
+                                 </div>
+                             ))}
+                          </div>
+                        </div>
+                    </div>
+                );
+            }
             case 'descubra-a-senha': {
                 if (!activeDuel.passwordGameState || !opponent) return <p>Erro no estado do jogo.</p>;
 
@@ -459,8 +565,15 @@ const DuelGame: React.FC = () => {
     
     return (
         <div className="w-full max-w-4xl flex flex-col items-center">
+            <ConfirmationModal 
+                isOpen={showForfeitConfirm}
+                onClose={() => setShowForfeitConfirm(false)}
+                onConfirm={() => { forfeitDuel(activeDuel.id); setShowForfeitConfirm(false); }}
+                title="Desistir do Duelo"
+                message="Tem certeza que deseja desistir? Isso contará como uma derrota."
+            />
             <h2 className="text-3xl font-bold text-center text-red-500 animate-pulse mb-4">DUELO!</h2>
-            {activeDuel.gameMode !== 'descubra-a-senha' && (
+            {activeDuel.gameMode !== 'descubra-a-senha' && activeDuel.gameMode !== 'jogo-das-garrafas' && (
                  <div className="space-y-3 mb-4 w-full">
                     {[self, opponent].map(p => {
                         if (!p) return null;
@@ -482,6 +595,11 @@ const DuelGame: React.FC = () => {
                 </div>
             )}
             {renderGameContent()}
+            <div className="mt-8 border-t border-slate-700 w-full pt-4 flex justify-center">
+                <button onClick={() => setShowForfeitConfirm(true)} className="px-4 py-2 bg-red-800 text-red-300 font-semibold rounded-lg shadow-md hover:bg-red-700 hover:text-white transition-colors text-sm">
+                    <i className="fas fa-flag-checkered mr-2"></i>Desistir da Partida
+                </button>
+            </div>
         </div>
     );
 };
@@ -515,7 +633,7 @@ const DuelResults: React.FC<{ onReturn: () => void }> = ({ onReturn }) => {
     const self = activeDuel.players.find(p => p.name === user.name);
     const opponent = activeDuel.players.find(p => p.name !== user.name);
 
-    const isPasswordGame = activeDuel.gameMode === 'descubra-a-senha';
+    const isSetupGame = ['descubra-a-senha', 'jogo-das-garrafas'].includes(activeDuel.gameMode);
 
     return (
         <div className="text-center py-6 flex flex-col justify-center items-center gap-4 relative">
@@ -533,15 +651,21 @@ const DuelResults: React.FC<{ onReturn: () => void }> = ({ onReturn }) => {
                     {winner && <p className="text-lg">{winner} foi o vencedor.</p>}
                 </div>
             )}
-            {!isPasswordGame && (
+            {!isSetupGame && (
                 <div className="mt-4 text-slate-300">
                     <p>Seu tempo: <span className="font-bold">{(self?.timeFinished ?? 0) / 1000}s</span></p>
                     <p>Tempo do oponente: <span className="font-bold">{(opponent?.timeFinished ?? 0) / 1000}s</span></p>
                 </div>
             )}
-            {isPasswordGame && !isWinner && opponent && activeDuel.passwordGameState && (
+            {activeDuel.gameMode === 'descubra-a-senha' && !isWinner && opponent && activeDuel.passwordGameState && (
                 <div className="mt-4 p-3 bg-slate-700 rounded-lg">
                     <p className="text-slate-300">A senha correta de {opponent.name} era: <span className="font-mono font-bold text-amber-400">{activeDuel.passwordGameState[opponent.name].password}</span></p>
+                </div>
+            )}
+             {activeDuel.gameMode === 'jogo-das-garrafas' && !isWinner && opponent && activeDuel.garrafasGameState && (
+                <div className="mt-4 p-3 bg-slate-700 rounded-lg">
+                    <p className="text-slate-300">A ordem correta de {opponent.name} era:</p>
+                     <div className="flex gap-1 justify-center mt-2">{activeDuel.garrafasGameState[opponent.name].correctOrder.map(b_idx => <img key={b_idx} src={GARRAFAS_IMAGES[b_idx]} className="w-10 h-auto"/>)}</div>
                 </div>
             )}
             <button onClick={onReturn} className="mt-6 px-6 py-3 bg-sky-600 text-white font-semibold rounded-lg shadow-md hover:bg-sky-700">
@@ -569,8 +693,9 @@ export const DuelMode: React.FC<DuelModeProps> = ({ onReturnToMenu }) => {
         if (activeDuel.status === 'finished') {
             return <DuelResults onReturn={handleReturnFromResults} />;
         }
-        if (activeDuel.status === 'setup' && activeDuel.gameMode === 'descubra-a-senha') {
-            return <DuelPasswordSetup />;
+        if (activeDuel.status === 'setup') {
+            if(activeDuel.gameMode === 'descubra-a-senha') return <DuelPasswordSetup />;
+            if(activeDuel.gameMode === 'jogo-das-garrafas') return <DuelGarrafasSetup />;
         }
         return <DuelGame />;
     };

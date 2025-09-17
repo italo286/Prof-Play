@@ -71,6 +71,8 @@ export const generateDuelChallenges = (gameMode: DuelableGameMode): DuelChalleng
             return generateSymmetryChallenges(TOTAL_CHALLENGES);
         case 'coordenadas-geograficas':
             return generateGeoChallenges(TOTAL_CHALLENGES);
+        case 'jogo-das-garrafas':
+            return []; // Player-generated challenges
         default:
             return generatePoints(TOTAL_CHALLENGES);
     }

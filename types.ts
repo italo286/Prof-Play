@@ -102,7 +102,7 @@ export interface PasswordChallenge {
 
 // --- DUEL TYPES ---
 
-export type DuelableGameMode = 'encontrar-pontos' | 'reconhecer-pontos' | 'simetria-pontos' | 'coordenadas-geograficas' | 'descubra-a-senha';
+export type DuelableGameMode = 'encontrar-pontos' | 'reconhecer-pontos' | 'simetria-pontos' | 'coordenadas-geograficas' | 'descubra-a-senha' | 'jogo-das-garrafas';
 
 export type DuelChallenge = Point | { point: Point; type: SymmetryType } | GeoPoint;
 
@@ -133,12 +133,23 @@ export interface DuelPasswordState {
     [playerName: string]: DuelPasswordPlayerState;
 }
 
+export interface DuelGarrafasPlayerState {
+    correctOrder: number[];
+    guesses: { guess: number[]; correctCount: number }[];
+    ready: boolean;
+}
+
+export interface DuelGarrafasState {
+    [playerName: string]: DuelGarrafasPlayerState;
+}
+
 export interface DuelState {
   id: string;
   players: [DuelPlayer, DuelPlayer];
   gameMode: DuelableGameMode;
   challenges: DuelChallenge[];
   passwordGameState?: DuelPasswordState;
+  garrafasGameState?: DuelGarrafasState;
   status: 'starting' | 'setup' | 'playing' | 'finished';
   winner: string | null;
 }
