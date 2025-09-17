@@ -281,7 +281,7 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
             onClose={() => setClassToDelete(null)}
             onConfirm={handleDeleteClass}
             title={`Excluir Turma ${classToDelete?.className}`}
-            message="Tem certeza que deseja excluir esta turma? Todos os alunos serão desvinculados, mas suas contas NÃO serão excluídas. Esta ação não pode ser desfeita."
+            message="Tem certeza que deseja excluir esta turma? TODOS OS ALUNOS desta turma e seus progressos serão PERMANENTEMENTE APAGADOS. Esta ação não pode ser desfeita."
         />
 
       <div className="relative bg-slate-800 shadow-2xl rounded-xl p-6 md:p-8 w-full max-w-6xl">

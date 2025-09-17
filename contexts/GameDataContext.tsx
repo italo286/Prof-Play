@@ -277,26 +277,36 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const deleteClass = useCallback(async (classCode: string) => {
     if (!user || user.role !== 'teacher') return;
-    // FIX: Switched to v8 syntax
+    
     const batch = db.batch();
-    
-    // 1. Unlink students
-    const studentsInClass = getStudentsInClass(classCode);
-    studentsInClass.forEach(student => {
-        const studentRef = db.doc(`users/${student.name}`);
-        batch.update(studentRef, { classCode: firebase.firestore.FieldValue.delete() });
-    });
-    
-    // 2. Remove class from teacher's list
-    const teacherRef = db.doc(`users/${user.name}`);
-    batch.update(teacherRef, { classes: firebase.firestore.FieldValue.arrayRemove(classCode) });
 
-    // 3. Delete class document
-    const classRef = db.doc(`classes/${classCode}`);
-    batch.delete(classRef);
+    try {
+        // 1. Find all students in the class to be deleted directly from Firestore
+        const studentsQuery = db.collection('users').where('classCode', '==', classCode);
+        const studentsSnapshot = await studentsQuery.get();
 
-    await batch.commit();
-  }, [user, getStudentsInClass]);
+        // 2. Add delete operations for each student and their presence data
+        studentsSnapshot.forEach(doc => {
+            const studentRef = doc.ref;
+            const presenceRef = db.doc(`presence/${doc.id}`);
+            batch.delete(studentRef);
+            batch.delete(presenceRef);
+        });
+        
+        // 3. Remove class from teacher's list
+        const teacherRef = db.doc(`users/${user.name}`);
+        batch.update(teacherRef, { classes: firebase.firestore.FieldValue.arrayRemove(classCode) });
+
+        // 4. Delete class document itself
+        const classRef = db.doc(`classes/${classCode}`);
+        batch.delete(classRef);
+
+        // 5. Commit all operations
+        await batch.commit();
+    } catch (error) {
+        console.error("Erro ao excluir turma e alunos:", error);
+    }
+  }, [user]);
   
   const deleteStudent = useCallback(async (studentName: string) => {
     if (!user || user.role !== 'teacher') return;
