@@ -152,6 +152,7 @@ export interface DuelState {
   garrafasGameState?: DuelGarrafasState;
   status: 'starting' | 'setup' | 'playing' | 'finished';
   winner: string | null;
+  createdAt?: any; // Firebase Timestamp
 }
 
 // --- ADEDONHA TYPES ---

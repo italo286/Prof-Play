@@ -89,14 +89,29 @@ export const DuelProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (currentActiveDuel) {
       setActiveDuel(currentActiveDuel);
     } else {
-      // If no active duel, check for a recently finished one to show results
-      const finishedDuel = duelStates.find(
+      // If no active duel, check for the MOST RECENT finished one to show results
+      const finishedDuels = duelStates.filter(
         (d) =>
           d && Array.isArray(d.players) &&
           d.players.some((p) => p?.name === user.name) &&
           d.status === 'finished'
       );
-      setActiveDuel(finishedDuel || null);
+      
+      if (finishedDuels.length > 0) {
+        // Sort by creation time descending to get the most recent one
+        finishedDuels.sort((a, b) => {
+            const timeA = a.createdAt?.seconds ?? 0;
+            const timeB = b.createdAt?.seconds ?? 0;
+            // Fallback to ID sort if timestamps are missing/equal
+            if (timeB === timeA) {
+                return b.id.localeCompare(a.id);
+            }
+            return timeB - timeA;
+        });
+        setActiveDuel(finishedDuels[0]);
+      } else {
+        setActiveDuel(null);
+      }
     }
   }, [duelStates, user]);
   
@@ -141,6 +156,7 @@ export const DuelProvider: React.FC<{ children: React.ReactNode }> = ({ children
         challenges,
         status: isSetupGame ? 'setup' : 'starting',
         winner: null,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     };
     if (invitation.gameMode === 'descubra-a-senha') {
         newDuel.passwordGameState = {
