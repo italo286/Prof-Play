@@ -13,6 +13,7 @@ import { ProfileContext } from './ProfileContext';
 interface DuelContextType {
   invitations: DuelInvitation[];
   activeDuel: DuelState | null;
+  duelStates: DuelState[];
   sendDuelInvitation: (to: string, gameMode: DuelableGameMode) => void;
   answerDuelInvitation: (invitationId: string, answer: 'accepted' | 'declined') => void;
   cancelDuelInvitation: (invitationId: string) => void;
@@ -341,7 +342,7 @@ export const DuelProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user, earnBadge]);
 
   const value = {
-    invitations, activeDuel,
+    invitations, activeDuel, duelStates,
     sendDuelInvitation, answerDuelInvitation, cancelDuelInvitation,
     updateDuelProgress, finishDuel, clearActiveDuel, handleDuelError,
     setDuelPassword, submitDuelGuess, forfeitDuel,

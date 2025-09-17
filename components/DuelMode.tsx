@@ -60,7 +60,7 @@ const ChallengeModal: React.FC<{
 const DuelLobby: React.FC<{ onInvite: (name: string, gameMode: DuelableGameMode) => void }> = ({ onInvite }) => {
     const { user } = useContext(AuthContext);
     const { getAllUsers } = useContext(GameDataContext);
-    const { invitations, answerDuelInvitation, cancelDuelInvitation } = useContext(DuelContext);
+    const { invitations, answerDuelInvitation, cancelDuelInvitation, duelStates } = useContext(DuelContext);
     const [challengeModalOpen, setChallengeModalOpen] = useState(false);
     const [challengingUser, setChallengingUser] = useState<UserProfile | null>(null);
 
@@ -68,6 +68,14 @@ const DuelLobby: React.FC<{ onInvite: (name: string, gameMode: DuelableGameMode)
         const timer = setInterval(() => {}, 1000); // Just to force re-renders for status updates
         return () => clearInterval(timer);
     }, []);
+
+    const playersInDuel = useMemo(() => {
+        return new Set(
+            duelStates
+                .filter(d => d.status === 'starting' || d.status === 'setup' || d.status === 'playing')
+                .flatMap(d => d.players.map(p => p.name))
+        );
+    }, [duelStates]);
 
     if (!user) return null;
 
@@ -145,14 +153,15 @@ const DuelLobby: React.FC<{ onInvite: (name: string, gameMode: DuelableGameMode)
                 <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
                     {otherUsers.length > 0 ? otherUsers.map(p => {
                         const isInvited = mySentInvitations.some(inv => inv.to === p.name);
+                        const isInDuel = playersInDuel.has(p.name);
                         return (
                             <div key={p.name} className="p-3 bg-slate-700 rounded-lg flex justify-between items-center">
                                 <div className="flex items-center gap-3">
                                     {p.avatar && <img src={p.avatar} alt={`Avatar de ${p.name}`} className="w-10 h-10 rounded-full bg-slate-600"/>}
                                     <span className="font-semibold">{p.name}</span>
                                 </div>
-                                <button onClick={() => handleChallengeClick(p)} disabled={isInvited} className="px-4 py-2 text-sm bg-sky-600 text-white font-semibold rounded hover:bg-sky-700 disabled:bg-slate-500 disabled:cursor-not-allowed">
-                                    {isInvited ? 'Convidado' : 'Desafiar'}
+                                <button onClick={() => handleChallengeClick(p)} disabled={isInvited || isInDuel} className="px-4 py-2 text-sm bg-sky-600 text-white font-semibold rounded hover:bg-sky-700 disabled:bg-slate-500 disabled:cursor-not-allowed">
+                                    {isInDuel ? 'Em Duelo' : isInvited ? 'Convidado' : 'Desafiar'}
                                 </button>
                             </div>
                         )
@@ -412,6 +421,27 @@ const DuelGame: React.FC = () => {
         showTemporaryMessage("Incorreto! Você voltou um desafio.", "error", 2000);
         handleDuelError(activeDuel.id, newProgress);
     }, [activeDuel, currentChallengeIndex, handleDuelError, showTemporaryMessage]);
+    
+    const arraysEqual = (a: any[], b: any[]): boolean => {
+      if (a.length !== b.length) return false;
+      for (let i = 0; i < a.length; i++) {
+        if (a[i] !== b[i]) return false;
+      }
+      return true;
+    };
+
+    const handleGarrafasCheck = () => {
+        if (!activeDuel || !user || !activeDuel.garrafasGameState) return;
+
+        const selfState = activeDuel.garrafasGameState[user.name];
+        const alreadyGuessed = selfState.guesses.some(g => arraysEqual(g.guess, garrafasOrder));
+
+        if (alreadyGuessed) {
+            showTemporaryMessage('Você já tentou esta ordem!', 'error', 3000);
+        } else {
+            submitDuelGarrafasGuess(activeDuel.id, garrafasOrder);
+        }
+    };
 
     const renderGameContent = () => {
         if (currentChallengeIndex >= TOTAL_CHALLENGES && !['descubra-a-senha', 'jogo-das-garrafas'].includes(activeDuel.gameMode)) {
@@ -429,10 +459,8 @@ const DuelGame: React.FC = () => {
                 const handleBottleClick = (index: number) => {
                     if (garrafasSelectedIndex === null) { setGarrafasSelectedIndex(index); } 
                     else {
-                        // FIX: Changed selectedIndex to garrafasSelectedIndex to match the state variable name.
                         if (garrafasSelectedIndex === index) { setGarrafasSelectedIndex(null); return; }
                         const newOrder = [...garrafasOrder];
-                        // FIX: Changed selectedIndex to garrafasSelectedIndex to match the state variable name.
                         [newOrder[garrafasSelectedIndex], newOrder[index]] = [newOrder[index], newOrder[garrafasSelectedIndex]];
                         setGarrafasOrder(newOrder);
                         setGarrafasSelectedIndex(null);
@@ -442,6 +470,7 @@ const DuelGame: React.FC = () => {
                 return (
                     <div className="w-full max-w-lg flex flex-col items-center">
                         <h4 className="text-lg font-bold text-center text-sky-300">Adivinhe a ordem de {opponent.name}</h4>
+                        {userMessage && <MessageDisplay message={userMessage} type={messageType} />}
                          <div className="grid grid-cols-6 gap-2 md:gap-4 my-4">
                             {garrafasOrder.map((bottleIndex, i) => (
                                 <div key={i} onClick={() => handleBottleClick(i)} className={`p-2 rounded-lg cursor-pointer transition-all ${garrafasSelectedIndex === i ? 'bg-sky-500 scale-110 shadow-lg' : 'bg-slate-700/50 hover:bg-slate-600'}`}>
@@ -449,7 +478,7 @@ const DuelGame: React.FC = () => {
                                 </div>
                             ))}
                         </div>
-                        <button onClick={() => submitDuelGarrafasGuess(activeDuel.id, garrafasOrder)} className="px-8 py-3 bg-sky-600 text-white font-bold rounded-lg shadow-md hover:bg-sky-700">Verificar</button>
+                        <button onClick={handleGarrafasCheck} className="px-8 py-3 bg-sky-600 text-white font-bold rounded-lg shadow-md hover:bg-sky-700">Verificar</button>
                         <div className="mt-4 pt-4 border-t border-slate-700 w-full">
                           <h5 className="font-bold text-center text-xs text-slate-300 mb-2">SEUS PALPITES</h5>
                           <div className="w-full space-y-2 max-h-40 overflow-y-auto pr-2">

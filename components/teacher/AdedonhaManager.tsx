@@ -181,7 +181,7 @@ const AdedonhaSessionView: React.FC<{ session: AdedonhaSession, onEnd: (session:
 };
 
 export const AdedonhaManager: React.FC<{ selectedClass: ClassData }> = ({ selectedClass }) => {
-    const { activeAdedonhaSession, createAdedonhaSession, endAdedonhaSession } = useContext(GameDataContext);
+    const { classes, activeAdedonhaSession, createAdedonhaSession, endAdedonhaSession } = useContext(GameDataContext);
     const [finishedSession, setFinishedSession] = useState<AdedonhaSession | null>(null);
 
     const sessionToRender = useMemo(() => {
@@ -210,10 +210,14 @@ export const AdedonhaManager: React.FC<{ selectedClass: ClassData }> = ({ select
         return <AdedonhaSessionView session={sessionToRender} onEnd={handleEndSession} onGoBackToLobby={() => setFinishedSession(null)} />;
     }
     
-    if (activeAdedonhaSession) {
+    if (activeAdedonhaSession && activeAdedonhaSession.classCode !== selectedClass.classCode) {
+        const activeSessionClass = classes.find(c => c.classCode === activeAdedonhaSession.classCode);
          return (
             <div className="bg-slate-900/70 p-6 rounded-lg text-center">
-                <p className="text-amber-400"><i className="fas fa-exclamation-triangle mr-2"></i>Você já tem uma sessão de Adedonha ativa em outra turma. Encerre-a para iniciar uma nova aqui.</p>
+                <p className="text-amber-400">
+                    <i className="fas fa-exclamation-triangle mr-2"></i>
+                    Você já tem uma sessão ativa na turma <span className="font-bold">{activeSessionClass?.className || 'desconhecida'}</span>. Encerre-a para iniciar uma nova aqui.
+                </p>
             </div>
         );
     }
