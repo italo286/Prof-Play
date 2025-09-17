@@ -10,7 +10,7 @@ import { GeoCoordinateInput } from './GeoCoordinateInput';
 import { WorldMap } from './WorldMap';
 import { getSymmetryInstructionText, calculateSymmetricPoint } from './SimetriaPontosGame';
 import type { Point, UserProfile, MessageType, SymmetryType, GeoPoint, DuelableGameMode } from '../types';
-import { playSuccessSound, playErrorSound, playDuelStartSound } from '../utils/audio';
+import { playSuccessSound, playErrorSound, playDuelStartSound } from '../../utils/audio';
 import { TOTAL_CHALLENGES, MIN_COORD, MAX_COORD } from '../data/duel';
 import { GARRAFAS_IMAGES } from '../data/games';
 import { ConfirmationModal } from './ConfirmationModal';
@@ -174,10 +174,11 @@ const DuelLobby: React.FC<{ onInvite: (name: string, gameMode: DuelableGameMode)
 
 const DuelPasswordSetup: React.FC = () => {
     const { user } = useContext(AuthContext);
-    const { activeDuel, setDuelPassword } = useContext(DuelContext);
+    const { activeDuel, setDuelPassword, forfeitDuel } = useContext(DuelContext);
     const [password, setPassword] = useState('');
     const [rules, setRules] = useState('');
     const [error, setError] = useState('');
+    const [showForfeitConfirm, setShowForfeitConfirm] = useState(false);
 
     if (!user || !activeDuel || !activeDuel.passwordGameState) return null;
 
@@ -220,6 +221,13 @@ const DuelPasswordSetup: React.FC = () => {
 
     return (
         <div className="w-full max-w-md p-4">
+            <ConfirmationModal
+                isOpen={showForfeitConfirm}
+                onClose={() => setShowForfeitConfirm(false)}
+                onConfirm={() => forfeitDuel(activeDuel.id)}
+                title="Encerrar Duelo"
+                message="Tem certeza que deseja encerrar o duelo? Seu oponente será declarado o vencedor."
+            />
             <h3 className="text-2xl font-bold text-center text-sky-300 mb-4">Crie sua Senha Secreta</h3>
             <form onSubmit={handleSubmit} className="space-y-4">
                  <div>
@@ -241,15 +249,22 @@ const DuelPasswordSetup: React.FC = () => {
                     Confirmar e Ficar Pronto
                 </button>
             </form>
+            <button
+                onClick={() => setShowForfeitConfirm(true)}
+                className="w-full mt-2 px-4 py-2 bg-red-800 text-red-300 font-semibold rounded-lg hover:bg-red-700 hover:text-white transition-colors text-sm"
+            >
+                Encerrar Duelo
+            </button>
         </div>
     );
 };
 
 const DuelGarrafasSetup: React.FC = () => {
     const { user } = useContext(AuthContext);
-    const { activeDuel, setDuelGarrafasOrder } = useContext(DuelContext);
+    const { activeDuel, setDuelGarrafasOrder, forfeitDuel } = useContext(DuelContext);
     const [order, setOrder] = useState<number[]>([0,1,2,3,4,5]);
     const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+    const [showForfeitConfirm, setShowForfeitConfirm] = useState(false);
 
     if (!user || !activeDuel || !activeDuel.garrafasGameState) return null;
     
@@ -286,6 +301,13 @@ const DuelGarrafasSetup: React.FC = () => {
 
     return (
         <div className="w-full max-w-lg p-4 flex flex-col items-center">
+            <ConfirmationModal
+                isOpen={showForfeitConfirm}
+                onClose={() => setShowForfeitConfirm(false)}
+                onConfirm={() => forfeitDuel(activeDuel.id)}
+                title="Encerrar Duelo"
+                message="Tem certeza que deseja encerrar o duelo? Seu oponente será declarado o vencedor."
+            />
             <h3 className="text-2xl font-bold text-center text-sky-300 mb-2">Defina a Ordem Secreta</h3>
             <p className="text-sm text-slate-400 mb-4 text-center">Clique em duas garrafas para trocar de lugar. Seu oponente terá que adivinhar esta sequência.</p>
             <div className="grid grid-cols-6 gap-2 md:gap-4 mb-6">
@@ -296,9 +318,17 @@ const DuelGarrafasSetup: React.FC = () => {
                     </div>
                 ))}
             </div>
-            <button onClick={handleSubmit} className="w-full max-w-xs px-4 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-colors">
-                Confirmar Ordem
-            </button>
+            <div className="w-full max-w-xs flex flex-col gap-2">
+                <button onClick={handleSubmit} className="w-full px-4 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-colors">
+                    Confirmar Ordem
+                </button>
+                <button
+                    onClick={() => setShowForfeitConfirm(true)}
+                    className="w-full px-4 py-2 bg-red-800 text-red-300 font-semibold rounded-lg hover:bg-red-700 hover:text-white transition-colors text-sm"
+                >
+                    Encerrar Duelo
+                </button>
+            </div>
         </div>
     );
 };
