@@ -10,7 +10,7 @@ import { GeoCoordinateInput } from './GeoCoordinateInput';
 import { WorldMap } from './WorldMap';
 import { getSymmetryInstructionText, calculateSymmetricPoint } from './SimetriaPontosGame';
 import type { Point, UserProfile, MessageType, SymmetryType, GeoPoint, DuelableGameMode } from '../types';
-import { playSuccessSound, playErrorSound, playDuelStartSound } from '../../utils/audio';
+import { playSuccessSound, playErrorSound, playDuelStartSound } from '../utils/audio';
 import { TOTAL_CHALLENGES, MIN_COORD, MAX_COORD } from '../data/duel';
 import { GARRAFAS_IMAGES } from '../data/games';
 import { ConfirmationModal } from './ConfirmationModal';
