@@ -194,7 +194,7 @@ const GameView: React.FC<{ challenge: CombinacaoTotalChallenge, onBack: () => vo
                          const percentage = totalCount > 0 ? (student.foundCount / totalCount) * 100 : 0;
                          const isCurrentUser = student.name === user?.name;
                          return (
-                            <div key={student.name} className={`p-2 rounded-md ${isCurrentUser ? 'bg-sky-800/50' : 'bg-slate-800'}`}>
+                            <div key={student.name} className={`p-2 rounded-md ${isCurrentUser ? 'bg-sky-800/80 border border-sky-600' : 'bg-slate-800'}`}>
                                 <div className="flex items-center gap-3 text-sm">
                                     <span className={`w-6 text-center font-bold ${index < 3 ? 'text-yellow-400' : 'text-slate-400'}`}>{index + 1}.</span>
                                     <span className="font-semibold text-slate-100 flex-grow truncate">{student.name}</span>

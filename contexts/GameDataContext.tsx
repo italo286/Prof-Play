@@ -80,13 +80,8 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [adedonhaSubmissions, setAdedonhaSubmissions] = useState<AdedonhaSubmission[]>([]);
 
   useEffect(() => {
-    // FIX: Switched to v8 syntax
+    // General listeners for non-user data
     const unsubscribes = [
-      db.collection('users').onSnapshot(snapshot => {
-          const data: UserProfile[] = [];
-          snapshot.forEach(doc => data.push(doc.data() as UserProfile));
-          setAllUsers(data);
-      }),
       db.collection('classes').onSnapshot(snapshot => {
           const data: ClassData[] = [];
           snapshot.forEach(doc => data.push(doc.data() as ClassData));
@@ -117,6 +112,45 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     ];
     return () => unsubscribes.forEach(unsub => unsub());
   }, []);
+
+  // OPTIMIZED USER DATA LISTENER
+  useEffect(() => {
+    let unsubscribeUsers = () => {};
+
+    if (user) {
+      let query: firebase.firestore.Query | null = null;
+      
+      // Student: Only listen to their own class
+      if (user.role === 'student' && user.classCode) {
+        query = db.collection('users').where('classCode', '==', user.classCode);
+      } 
+      // Teacher: Listen to all students in all of their classes
+      else if (user.role === 'teacher' && user.classes && user.classes.length > 0) {
+        // Firestore 'in' query is limited to 10 elements. If a teacher has more, this needs another strategy.
+        // For now, assuming a teacher has <= 10 classes.
+        query = db.collection('users').where('classCode', 'in', user.classes);
+      }
+
+      if (query) {
+        unsubscribeUsers = query.onSnapshot(snapshot => {
+          const data: UserProfile[] = [];
+          snapshot.forEach(doc => data.push(doc.data() as UserProfile));
+          setAllUsers(data);
+        });
+      } else {
+        // If user has no classCode or classes, just fetch their own profile to keep it updated.
+        unsubscribeUsers = db.doc(`users/${user.name}`).onSnapshot(doc => {
+            if (doc.exists) {
+                setAllUsers([doc.data() as UserProfile]);
+            }
+        });
+      }
+    } else {
+      setAllUsers([]); // Clear users on logout
+    }
+
+    return () => unsubscribeUsers();
+  }, [user]);
 
   // Adedonha Listeners
   useEffect(() => {
