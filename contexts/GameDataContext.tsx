@@ -281,30 +281,54 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const batch = db.batch();
 
     try {
-        // 1. Find all students in the class to be deleted directly from Firestore
+        // 1. Find and delete students and their presence data
         const studentsQuery = db.collection('users').where('classCode', '==', classCode);
         const studentsSnapshot = await studentsQuery.get();
-
-        // 2. Add delete operations for each student and their presence data
         studentsSnapshot.forEach(doc => {
-            const studentRef = doc.ref;
-            const presenceRef = db.doc(`presence/${doc.id}`);
-            batch.delete(studentRef);
-            batch.delete(presenceRef);
+            batch.delete(doc.ref);
+            batch.delete(db.doc(`presence/${doc.id}`));
         });
         
-        // 3. Remove class from teacher's list
+        // 2. Find and delete associated Adedonha sessions and their children
+        const sessionsQuery = db.collection('adedonhaSessions').where('classCode', '==', classCode);
+        const sessionsSnapshot = await sessionsQuery.get();
+        for (const sessionDoc of sessionsSnapshot.docs) {
+            const roundsQuery = db.collection('adedonhaRounds').where('sessionId', '==', sessionDoc.id);
+            const roundsSnapshot = await roundsQuery.get();
+            for (const roundDoc of roundsSnapshot.docs) {
+                const submissionsQuery = db.collection('adedonhaSubmissions').where('roundId', '==', roundDoc.id);
+                const submissionsSnapshot = await submissionsQuery.get();
+                submissionsSnapshot.forEach(subDoc => batch.delete(subDoc.ref));
+                batch.delete(roundDoc.ref);
+            }
+            batch.delete(sessionDoc.ref);
+        }
+
+        // 3. Delete associated challenges for other games
+        const passwordChallengesQuery = db.collection('password_challenges').where('classCode', '==', classCode);
+        const passwordSnapshot = await passwordChallengesQuery.get();
+        passwordSnapshot.forEach(doc => batch.delete(doc.ref));
+        
+        const combinacaoChallengesQuery = db.collection('combinacao_total_challenges').where('classCode', '==', classCode);
+        const combinacaoSnapshot = await combinacaoChallengesQuery.get();
+        combinacaoSnapshot.forEach(doc => batch.delete(doc.ref));
+
+        const garrafasChallengesQuery = db.collection('garrafas_challenges').where('classCode', '==', classCode);
+        const garrafasSnapshot = await garrafasChallengesQuery.get();
+        garrafasSnapshot.forEach(doc => batch.delete(doc.ref));
+
+        // 4. Remove class from teacher's list
         const teacherRef = db.doc(`users/${user.name}`);
         batch.update(teacherRef, { classes: firebase.firestore.FieldValue.arrayRemove(classCode) });
 
-        // 4. Delete class document itself
+        // 5. Delete class document itself
         const classRef = db.doc(`classes/${classCode}`);
         batch.delete(classRef);
 
-        // 5. Commit all operations
+        // 6. Commit all operations
         await batch.commit();
     } catch (error) {
-        console.error("Erro ao excluir turma e alunos:", error);
+        console.error("Erro ao excluir turma e seus dados associados:", error);
     }
   }, [user]);
   
