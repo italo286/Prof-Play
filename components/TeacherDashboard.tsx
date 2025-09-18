@@ -17,7 +17,7 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
   const { user, logout } = useContext(AuthContext);
   const { 
     getClassesForTeacher, getStudentsInClass, createClass, deleteClass, deleteStudent,
-    onlineStudents: allOnlineStudents
+    onlineStudents: allOnlineStudents, endAllAdedonhaSessions
   } = useContext(GameDataContext);
 
   const [newClassName, setNewClassName] = useState('');
@@ -36,6 +36,7 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
   const [studentToEdit, setStudentToEdit] = useState<UserProfile | null>(null);
   const [classDetailTab, setClassDetailTab] = useState<'ranking' | 'gerenciar' | 'atividade' | 'jogos'>('ranking');
   const [selectedGameView, setSelectedGameView] = useState<'overview' | 'adedonha' | 'password' | 'combination' | 'garrafas'>('overview');
+  const [isEndAllModalOpen, setIsEndAllModalOpen] = useState(false);
 
 
   useEffect(() => {
@@ -105,6 +106,11 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
   const handleViewStudentReport = (student: UserProfile) => {
     setSelectedStudent(student);
     setReportModalOpen(true);
+  };
+  
+  const handleEndAllSessions = async () => {
+    await endAllAdedonhaSessions();
+    setIsEndAllModalOpen(false);
   };
 
   if (!user || user.role !== 'teacher') {
@@ -283,6 +289,13 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
             title={`Excluir Turma ${classToDelete?.className}`}
             message="Tem certeza que deseja excluir esta turma? TODOS OS ALUNOS desta turma e seus progressos serão PERMANENTEMENTE APAGADOS. Esta ação não pode ser desfeita."
         />
+        <ConfirmationModal
+            isOpen={isEndAllModalOpen}
+            onClose={() => setIsEndAllModalOpen(false)}
+            onConfirm={handleEndAllSessions}
+            title="Encerrar Todas as Sessões?"
+            message="Isso forçará o fim de TODAS as partidas de Adedonha ativas. Os alunos serão enviados para a tela de espera. Esta ação é útil se uma partida travou ou foi esquecida. Deseja continuar?"
+        />
 
       <div className="relative bg-slate-800 shadow-2xl rounded-xl p-6 md:p-8 w-full max-w-6xl">
         <header className="mb-8">
@@ -291,6 +304,9 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
                     Painel do Professor
                 </h1>
                 <div className="flex items-center gap-3">
+                    <button onClick={() => setIsEndAllModalOpen(true)} className="px-4 py-2 bg-amber-600 text-white font-semibold rounded-lg shadow-md hover:bg-amber-700 transition-colors flex items-center gap-2">
+                        <i className="fas fa-power-off"></i>Encerrar Sessões
+                    </button>
                     <button onClick={onAccessGames} className="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition-colors flex items-center gap-2">
                         <i className="fas fa-gamepad"></i>Acessar Jogos
                     </button>

@@ -51,6 +51,7 @@ interface GameDataContextType {
   updateSubmissionScore: (submissionId: string, newScore: number) => Promise<void>;
   finalizeRound: (sessionId: string, roundId: string, submissions: AdedonhaSubmission[]) => Promise<void>;
   endAdedonhaSession: (sessionId: string) => Promise<void>;
+  endAllAdedonhaSessions: () => Promise<void>;
   createGarrafasChallenge: (challengeData: Omit<GarrafasChallenge, 'id' | 'creatorName' | 'createdAt' | 'status' | 'unlockedTimestamp'>) => Promise<{ status: 'success' | 'error', message?: string }>;
   deleteGarrafasChallenge: (challengeId: string) => Promise<void>;
   unlockGarrafasChallenge: (challengeId: string) => Promise<void>;
@@ -537,6 +538,31 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     await db.doc(`adedonhaSessions/${sessionId}`).update({ status: 'finished' });
   }, []);
   
+  const endAllAdedonhaSessions = useCallback(async () => {
+    if (!user || user.role !== 'teacher') return;
+
+    try {
+        const q = db.collection('adedonhaSessions')
+                    .where('teacherName', '==', user.name)
+                    .where('status', '==', 'active');
+        
+        const activeSessionsSnapshot = await q.get();
+
+        if (activeSessionsSnapshot.empty) {
+            return;
+        }
+
+        const batch = db.batch();
+        activeSessionsSnapshot.forEach(doc => {
+            batch.update(doc.ref, { status: 'finished' });
+        });
+
+        await batch.commit();
+    } catch (error) {
+        console.error("Error ending all Adedonha sessions:", error);
+    }
+  }, [user]);
+
   // --- Garrafas Actions ---
   const createGarrafasChallenge = useCallback(async (data: any): Promise<{ status: 'success' | 'error', message?: string }> => {
     if (!user || user.role !== 'teacher') return { status: 'error', message: 'Apenas professores podem criar desafios.' };
@@ -665,6 +691,7 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     updateSubmissionScore: updateSubmissionScore,
     finalizeRound: finalizeRound,
     endAdedonhaSession: endAdedonhaSession,
+    endAllAdedonhaSessions,
     createGarrafasChallenge,
     deleteGarrafasChallenge,
     unlockGarrafasChallenge,
