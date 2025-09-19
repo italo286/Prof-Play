@@ -4,7 +4,7 @@ import { GameDataContext } from '../contexts/GameDataContext';
 import { ProfileContext } from '../contexts/ProfileContext';
 import { MessageDisplay } from './MessageDisplay';
 import { GARRAFAS_IMAGES } from '../data/games';
-import type { GarrafasChallenge, MessageType } from '../types';
+import type { GarrafasChallenge, MessageType } from '../../types';
 import { playSuccessSound, playErrorSound } from '../utils/audio';
 
 const getJsDateFromTimestamp = (timestamp: any): Date | null => {
@@ -40,12 +40,6 @@ const CompletionScreen: React.FC<{
 }> = ({ challenge, onBack }) => {
     const { user } = useContext(AuthContext);
     const { getStudentsInClass } = useContext(GameDataContext);
-    const [lastUpdated, setLastUpdated] = useState(Date.now());
-
-    useEffect(() => {
-        const timer = setInterval(() => setLastUpdated(Date.now()), 5000); // Poll for updates
-        return () => clearInterval(timer);
-    }, []);
 
     const rankedStudents = useMemo(() => {
         if (!user || !user.classCode) return [];
@@ -61,15 +55,8 @@ const CompletionScreen: React.FC<{
             .filter((s): s is { name: string; avatar: string | undefined; attempts: number; completionTime: Date } => !!s)
             .sort((a, b) => a.completionTime.getTime() - b.completionTime.getTime());
 
-        console.log('[Aluno] Verificando ranking Garrafas:', { 
-            timestamp: new Date().toLocaleTimeString(),
-            challengeId: challenge.id,
-            totalAlunosNaTurma: classmates.length,
-            alunosCompletos: completedStudents.length
-        });
-
         return completedStudents;
-    }, [user, getStudentsInClass, challenge.id, lastUpdated]);
+    }, [user, getStudentsInClass, challenge.id]);
 
     return (
         <div className="text-center py-6 flex flex-col justify-center items-center gap-4 animate-fade-in-down">
@@ -96,7 +83,7 @@ const CompletionScreen: React.FC<{
 
 const GameView: React.FC<{ challenge: GarrafasChallenge, onBack: () => void }> = ({ challenge, onBack }) => {
     const { user } = useContext(AuthContext);
-    const { logGarrafasAttempt } = useContext(ProfileContext);
+    const { finalizeGarrafasChallenge } = useContext(ProfileContext);
     const [currentOrder, setCurrentOrder] = useState<number[]>(() => {
         let shuffled;
         do {
@@ -107,16 +94,10 @@ const GameView: React.FC<{ challenge: GarrafasChallenge, onBack: () => void }> =
     const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
     const [message, setMessage] = useState('');
     const [messageType, setMessageType] = useState<MessageType>('info');
+    const [attempts, setAttempts] = useState(0);
 
     const myStat = useMemo(() => user?.garrafasStats?.find(s => s.challengeId === challenge.id), [user, challenge.id]);
-    const [isComplete, setIsComplete] = useState(myStat?.isComplete || false);
-    const [checkCount, setCheckCount] = useState(myStat?.attempts || 0);
-
-    useEffect(() => {
-        if (myStat?.isComplete) {
-            setIsComplete(true);
-        }
-    }, [myStat]);
+    const isComplete = myStat?.isComplete || false;
 
     const handleBottleClick = (index: number) => {
         if (isComplete) return;
@@ -137,15 +118,14 @@ const GameView: React.FC<{ challenge: GarrafasChallenge, onBack: () => void }> =
     const handleCheck = () => {
         if (isComplete) return;
 
-        const newCheckCount = checkCount + 1;
-        setCheckCount(newCheckCount);
+        const newAttempts = attempts + 1;
+        setAttempts(newAttempts);
 
         const isCorrect = arraysEqual(currentOrder, challenge.correctOrder);
-        logGarrafasAttempt(challenge.id, newCheckCount, isCorrect);
         
         if (isCorrect) {
             playSuccessSound();
-            setIsComplete(true);
+            finalizeGarrafasChallenge(challenge.id, newAttempts);
         } else {
             playErrorSound();
             let correctCount = 0;

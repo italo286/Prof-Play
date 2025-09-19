@@ -9,8 +9,8 @@ const sounds = {
 
 const playSound = (sound: HTMLAudioElement) => {
   // Reset playback to the start and play the sound
-  // sound.currentTime = 0;
-  // sound.play().catch(error => console.error(`Error playing sound: ${sound.src}`, error));
+  sound.currentTime = 0;
+  sound.play().catch(error => console.error(`Error playing sound: ${sound.src}`, error));
 };
 
 export const playSuccessSound = () => playSound(sounds.success);

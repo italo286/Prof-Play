@@ -44,27 +44,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     setLoading(true);
-    // FIX: Switched to v8 syntax for collection and onSnapshot
-    const usersCollection = db.collection('users');
-    const unsubscribe = usersCollection.onSnapshot((snapshot) => {
-        const profiles: UserProfile[] = [];
-        snapshot.forEach(doc => profiles.push(doc.data() as UserProfile));
+    const storedUserName = sessionStorage.getItem(CURRENT_USER_STORAGE_KEY);
+    let unsubscribe = () => {};
 
-        const storedUserName = sessionStorage.getItem(CURRENT_USER_STORAGE_KEY);
-        if (storedUserName) {
-            const userProfile = profiles.find(p => p.name === storedUserName);
-            if (userProfile) {
-                // FIX: Switched to v8 syntax for doc and setDoc
-                const presenceRef = db.doc(`presence/${userProfile.name}`);
-                presenceRef.set({ lastSeen: firebase.firestore.FieldValue.serverTimestamp() });
-                setUser(userProfile);
-            } else {
-                sessionStorage.removeItem(CURRENT_USER_STORAGE_KEY);
-                setUser(null);
-            }
+    if (storedUserName) {
+      const userRef = db.doc(`users/${storedUserName}`);
+      unsubscribe = userRef.onSnapshot((doc) => {
+        if (doc.exists) {
+          const userProfile = doc.data() as UserProfile;
+          const presenceRef = db.doc(`presence/${userProfile.name}`);
+          presenceRef.set({ lastSeen: firebase.firestore.FieldValue.serverTimestamp() });
+          setUser(userProfile);
+        } else {
+          // User was deleted or logged out from another tab
+          sessionStorage.removeItem(CURRENT_USER_STORAGE_KEY);
+          setUser(null);
         }
         setLoading(false);
-    });
+      }, (error) => {
+        console.error("Error listening to user document:", error);
+        setLoading(false);
+        setUser(null);
+        sessionStorage.removeItem(CURRENT_USER_STORAGE_KEY);
+      });
+    } else {
+      setLoading(false);
+    }
 
     return () => unsubscribe();
   }, []);
@@ -79,7 +84,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         presenceRef.set({
             lastSeen: firebase.firestore.FieldValue.serverTimestamp()
         });
-    }, 60000); // Update every 60 seconds
+    }, 180000); // Update every 3 minutes (180 seconds) to reduce writes
 
     return () => clearInterval(heartbeatInterval);
   }, [user]);

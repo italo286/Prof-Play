@@ -3,7 +3,7 @@ import { AuthContext } from '../contexts/AuthContext';
 import { GameDataContext } from '../contexts/GameDataContext';
 import { ProfileContext } from '../contexts/ProfileContext';
 import { MessageDisplay } from './MessageDisplay';
-import type { CombinacaoTotalChallenge, MessageType, UserProfile } from '../types';
+import type { CombinacaoTotalChallenge, MessageType, UserProfile } from '../../types';
 import { validateCombination } from '../utils/combinatorics';
 
 const getJsDateFromTimestamp = (timestamp: any): Date | null => {
@@ -20,12 +20,6 @@ const CombinationTotalCompletionScreen: React.FC<{
 }> = ({ challenge, onBack }) => {
     const { user } = useContext(AuthContext);
     const { getStudentsInClass } = useContext(GameDataContext);
-    const [lastUpdated, setLastUpdated] = useState(Date.now());
-
-    useEffect(() => {
-        const timer = setInterval(() => setLastUpdated(Date.now()), 5000); // Poll for updates
-        return () => clearInterval(timer);
-    }, []);
 
     const rankedStudents = useMemo(() => {
         if (!user || !user.classCode) return [];
@@ -42,7 +36,7 @@ const CombinationTotalCompletionScreen: React.FC<{
             })
             .filter((s): s is { name: string; avatar: string | undefined; completionTime: Date } => !!s && !!s.completionTime)
             .sort((a, b) => a.completionTime.getTime() - b.completionTime.getTime());
-    }, [user, getStudentsInClass, challenge.id, lastUpdated]);
+    }, [user, getStudentsInClass, challenge.id]);
 
     return (
         <div className="text-center py-6 flex flex-col justify-center items-center gap-4 animate-fade-in-down">
@@ -80,7 +74,7 @@ const CombinationTotalCompletionScreen: React.FC<{
 const GameView: React.FC<{ challenge: CombinacaoTotalChallenge, onBack: () => void }> = ({ challenge, onBack }) => {
     const { user } = useContext(AuthContext);
     const { getStudentsInClass } = useContext(GameDataContext);
-    const { logCombinacaoTotalAttempt } = useContext(ProfileContext);
+    const { finalizeCombinacaoTotalChallenge } = useContext(ProfileContext);
     const [attempt, setAttempt] = useState('');
     const [message, setMessage] = useState('');
     const [messageType, setMessageType] = useState<MessageType>('info');
@@ -89,8 +83,9 @@ const GameView: React.FC<{ challenge: CombinacaoTotalChallenge, onBack: () => vo
         return user?.combinacaoTotalStats?.find(s => s.challengeId === challenge.id) || { challengeId: challenge.id, foundCombinations: [], isComplete: false };
     }, [user, challenge.id]);
     
-    // Use data directly from context to avoid state synchronization bugs
-    const foundCombinations = myStat.foundCombinations;
+    const [sessionFound, setSessionFound] = useState<string[]>([]);
+    
+    const foundCombinations = useMemo(() => new Set([...myStat.foundCombinations, ...sessionFound]), [myStat.foundCombinations, sessionFound]);
 
     const classmates = useMemo(() => {
         if (!user?.classCode) return [];
@@ -98,9 +93,6 @@ const GameView: React.FC<{ challenge: CombinacaoTotalChallenge, onBack: () => vo
     }, [user, getStudentsInClass]);
 
     const rankedClassmates = useMemo(() => {
-        // This dependency ensures the ranking updates when any student's data changes
-        const allStats = classmates.map(s => s.combinacaoTotalStats).flat(); 
-        
         return classmates
             .map(student => {
                 const stat = student.combinacaoTotalStats?.find(s => s.challengeId === challenge.id);
@@ -118,12 +110,18 @@ const GameView: React.FC<{ challenge: CombinacaoTotalChallenge, onBack: () => vo
         e.preventDefault();
         if (!attempt.trim() || isComplete) return;
 
-        const validation = validateCombination(attempt, challenge.rules, foundCombinations);
+        const validation = validateCombination(attempt, challenge.rules, Array.from(foundCombinations));
         
         setMessage(validation.message);
         if (validation.isValid && validation.isNew) {
             setMessageType('success');
-            logCombinacaoTotalAttempt(challenge.id, attempt);
+            const newFound = [...sessionFound, attempt];
+            setSessionFound(newFound);
+            
+            // Check for completion
+            if (myStat.foundCombinations.length + newFound.length >= totalCount) {
+                finalizeCombinacaoTotalChallenge(challenge.id, [...myStat.foundCombinations, ...newFound]);
+            }
         } else if (validation.isValid && !validation.isNew) {
             setMessageType('info');
         } else {
@@ -175,9 +173,9 @@ const GameView: React.FC<{ challenge: CombinacaoTotalChallenge, onBack: () => vo
                 {message && <MessageDisplay message={message} type={messageType} />}
                 
                 <div className="bg-slate-900/70 p-4 rounded-lg mt-4">
-                    <h3 className="font-bold text-lg text-cyan-300 mb-2">Suas Combinações ({foundCombinations.length} / {totalCount})</h3>
+                    <h3 className="font-bold text-lg text-cyan-300 mb-2">Suas Combinações ({foundCombinations.size} / {totalCount})</h3>
                     <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 max-h-48 overflow-y-auto pr-2">
-                        {[...foundCombinations].sort().map(c => (
+                        {Array.from(foundCombinations).sort().map(c => (
                             <div key={c} className="p-2 bg-slate-700 text-center font-mono rounded-md animate-fade-in-down">
                                 {c}
                             </div>

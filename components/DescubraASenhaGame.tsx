@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useContext, useRef, useMemo } from 'react';
-import type { PasswordChallenge, GameStat, MessageType } from '../types';
+import type { PasswordChallenge, GameStat, MessageType } from '../../types';
 import { AuthContext } from '../contexts/AuthContext';
 import { GameDataContext } from '../contexts/GameDataContext';
 import { ProfileContext } from '../contexts/ProfileContext';
@@ -133,13 +133,6 @@ const CompletionRankingScreen: React.FC<{
     const { getStudentsInClass } = useContext(GameDataContext);
     const gameId = `${GAME_ID}_${challenge.id}`;
     
-    const [lastUpdated, setLastUpdated] = useState(Date.now());
-
-    useEffect(() => {
-        const timer = setInterval(() => setLastUpdated(Date.now()), 5000); // Poll for updates
-        return () => clearInterval(timer);
-    }, []);
-
     const rankedStudents = useMemo(() => {
         if (!user || !user.classCode) return [];
         const classmates = getStudentsInClass(user.classCode);
@@ -156,7 +149,7 @@ const CompletionRankingScreen: React.FC<{
             })
             .filter((s): s is { name: string; avatar: string | undefined; attempts: number; completionTime: Date } => !!s && !!s.completionTime)
             .sort((a, b) => a.completionTime.getTime() - b.completionTime.getTime());
-    }, [user, getStudentsInClass, gameId, lastUpdated]);
+    }, [user, getStudentsInClass, gameId]);
 
     return (
         <div className="text-center py-6 flex flex-col justify-center items-center gap-4 animate-fade-in-down">
@@ -198,10 +191,11 @@ interface DescubraASenhaGameProps {
 export const DescubraASenhaGame: React.FC<DescubraASenhaGameProps> = ({ onReturnToMenu }) => {
   const { user } = useContext(AuthContext);
   const { passwordChallenges } = useContext(GameDataContext);
-  const { logAttempt } = useContext(ProfileContext);
+  const { finalizePasswordChallenge } = useContext(ProfileContext);
   const [selectedChallenge, setSelectedChallenge] = useState<PasswordChallenge | null>(null);
   const [guesses, setGuesses] = useState<{ guess: string; correctCount: number }[]>([]);
   const [gameOver, setGameOver] = useState(false);
+  const [errorCount, setErrorCount] = useState(0);
   const [isFirstAttempt, setIsFirstAttempt] = useState(true);
   const [timeElapsed, setTimeElapsed] = useState('00:00');
   const [message, setMessage] = useState('');
@@ -250,6 +244,7 @@ export const DescubraASenhaGame: React.FC<DescubraASenhaGameProps> = ({ onReturn
     setSelectedChallenge(challenge);
     setGameOver(false);
     setGuesses([]);
+    setErrorCount(0);
     setIsFirstAttempt(true);
     if (messageTimeoutRef.current) clearTimeout(messageTimeoutRef.current);
     setMessage('');
@@ -265,11 +260,11 @@ export const DescubraASenhaGame: React.FC<DescubraASenhaGameProps> = ({ onReturn
 
     if (guess === selectedChallenge.password) {
         playSuccessSound();
-        logAttempt(`${GAME_ID}_${selectedChallenge.id}`, true, isFirstAttempt);
+        finalizePasswordChallenge(selectedChallenge.id, errorCount, isFirstAttempt);
         setGameOver(true);
     } else {
         playErrorSound();
-        logAttempt(`${GAME_ID}_${selectedChallenge.id}`, false, false);
+        setErrorCount(prev => prev + 1);
         setIsFirstAttempt(false);
         showTemporaryMessage('Combinação incorreta. Tente novamente!', 'error');
     }
@@ -301,13 +296,13 @@ export const DescubraASenhaGame: React.FC<DescubraASenhaGameProps> = ({ onReturn
                 <p className="text-slate-300 mt-2">Selecione um desafio ativo para começar.</p>
             </header>
             <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
-                {unlockedChallenges.length > 0 ? unlockedChallenges.map(challenge => (
-                    <div key={challenge.id} onClick={() => handleSelectChallenge(challenge)} className="p-4 bg-slate-700 rounded-lg cursor-pointer hover:bg-sky-900/50 border-2 border-transparent hover:border-sky-600 transition-all">
-                        <h2 className="font-bold text-lg text-sky-300">{challenge.title}</h2>
-                        <p className="text-sm text-slate-400">Criado por: {challenge.creatorName}</p>
+                {unlockedChallenges.length > 0 ? unlockedChallenges.map(c => (
+                    <div key={c.id} onClick={() => handleSelectChallenge(c)} className="p-4 bg-slate-700 rounded-lg cursor-pointer hover:bg-sky-900/50 border-2 border-transparent hover:border-sky-600">
+                        <h2 className="font-bold text-lg text-sky-300">{c.title}</h2>
+                        <p className="text-sm text-slate-400">Criado por: {c.creatorName}</p>
                     </div>
                 )) : (
-                    <p className="text-center text-slate-400 py-8">Nenhum desafio ativo para sua turma no momento. Fale com seu professor!</p>
+                    <p className="text-center text-slate-400 py-8">Nenhum desafio de senha para sua turma no momento.</p>
                 )}
             </div>
             <footer className="text-center text-sm text-slate-400 mt-8">
@@ -317,54 +312,54 @@ export const DescubraASenhaGame: React.FC<DescubraASenhaGameProps> = ({ onReturn
       </div>
     );
   }
-  
+
   if (gameOver) {
-    return (
-      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-slate-200">
-        <div className="relative bg-slate-800 shadow-2xl rounded-xl p-6 md:p-8 w-full max-w-2xl">
-            <CompletionRankingScreen challenge={selectedChallenge} onReturnToMenu={onReturnToMenu} />
-             <footer className="text-center text-sm text-slate-400 mt-8">
-                <p>Desenvolvido por Ítalo Natan – 2025</p>
-            </footer>
+      return (
+         <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-slate-200">
+            <div className="relative bg-slate-800 shadow-2xl rounded-xl p-6 md:p-8 w-full max-w-2xl">
+                 <CompletionRankingScreen challenge={selectedChallenge} onReturnToMenu={resetGame} />
+                 <footer className="text-center text-sm text-slate-400 mt-8">
+                    <p>Desenvolvido por Ítalo Natan – 2025</p>
+                </footer>
+            </div>
         </div>
-      </div>
-    );
+      )
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-slate-200 select-none">
-      <div className="relative bg-slate-800 shadow-2xl rounded-xl p-6 md:p-8 w-full max-w-md">
-        <div className="flex justify-between items-center w-full mb-6">
-             <button onClick={resetGame} className="text-slate-400 hover:text-sky-400 transition-colors flex items-center text-sm font-medium p-2 rounded-lg hover:bg-slate-700">
-                <i className="fas fa-arrow-left mr-2"></i>Trocar Desafio
-             </button>
-        </div>
-        
-        <header className="text-center mb-4 relative">
-            <div className="absolute top-0 right-0 text-center">
-                <span className="text-xs text-slate-400">Tempo</span>
-                <p className="text-xl font-bold font-mono text-yellow-400">{timeElapsed}</p>
+    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-slate-200">
+        <div className="relative bg-slate-800 shadow-2xl rounded-xl p-6 md:p-8 w-full max-w-2xl">
+            <button onClick={resetGame} className="absolute top-4 left-4 text-slate-400 hover:text-sky-400 p-2 rounded-lg hover:bg-slate-700 z-10">
+                <i className="fas fa-arrow-left mr-2"></i>Voltar aos Desafios
+            </button>
+            <div className="absolute top-4 right-4 bg-slate-700/80 px-3 py-1.5 rounded-full font-mono text-sm">
+                <i className="far fa-clock mr-2"></i>{timeElapsed}
             </div>
-            <h1 className="text-2xl font-bold text-sky-400">{selectedChallenge.title}</h1>
-        </header>
+             <header className="text-center mb-4">
+                <h1 className="text-3xl font-bold text-sky-400">{selectedChallenge.title}</h1>
+            </header>
+            
+            <div className="bg-slate-900/70 p-4 rounded-lg mb-4">
+                <h3 className="font-bold text-lg text-cyan-300 mb-2">Dicas</h3>
+                <ul className="text-sm space-y-1 text-slate-300 list-disc list-inside">
+                    {selectedChallenge.rules.map((rule, i) => <li key={i}>{rule}</li>)}
+                </ul>
+            </div>
+            
+            {message && <MessageDisplay message={message} type={messageType} />}
 
-        <div className="p-4 bg-slate-900/70 rounded-lg mb-4">
-            <h3 className="font-bold text-center text-slate-200 mb-2">Regras e Dicas</h3>
-            <ul className="text-center text-sm text-slate-300 list-inside">
-                {selectedChallenge.rules.map((rule, i) => <li key={i}>{rule}</li>)}
-            </ul>
-        </div>
-         <div className="p-2 bg-slate-900/70 rounded-lg mb-4">
+            <GuessInput 
+                digitCount={selectedChallenge.digitCount}
+                onGuess={handleGuess}
+                disabled={gameOver}
+            />
+            
             <GuessHistory guesses={guesses} />
-         </div>
-         
-        {message && <MessageDisplay message={message} type={messageType} />}
 
-        <GuessInput digitCount={selectedChallenge.digitCount} onGuess={handleGuess} disabled={gameOver} />
-        <footer className="text-center text-sm text-slate-400 mt-8">
-            <p>Desenvolvido por Ítalo Natan – 2025</p>
-        </footer>
-      </div>
+            <footer className="text-center text-sm text-slate-400 mt-8">
+                <p>Desenvolvido por Ítalo Natan – 2025</p>
+            </footer>
+        </div>
     </div>
   );
 };

@@ -29,8 +29,9 @@ interface ProfileContextType {
   addXp: (amount: number) => Promise<void>;
   earnBadge: (badgeId: string) => Promise<void>;
   logAttempt: (gameId: string, success: boolean, firstTry: boolean) => Promise<void>;
-  logCombinacaoTotalAttempt: (challengeId: string, combination: string) => Promise<void>;
-  logGarrafasAttempt: (challengeId: string, attempts: number, isCorrect: boolean) => Promise<void>;
+  finalizePasswordChallenge: (challengeId: string, errorCount: number, wasFirstTry: boolean) => Promise<void>;
+  finalizeCombinacaoTotalChallenge: (challengeId: string, foundCombinations: string[]) => Promise<void>;
+  finalizeGarrafasChallenge: (challengeId: string, attempts: number) => Promise<void>;
   updateUserProfile: (data: Partial<UserProfile>) => Promise<void>;
   notifications: NotificationItem[];
   dismissCurrentNotification: () => void;
@@ -40,8 +41,9 @@ export const ProfileContext = createContext<ProfileContextType>({
   addXp: async () => {},
   earnBadge: async () => {},
   logAttempt: async () => {},
-  logCombinacaoTotalAttempt: async () => {},
-  logGarrafasAttempt: async () => {},
+  finalizePasswordChallenge: async () => {},
+  finalizeCombinacaoTotalChallenge: async () => {},
+  finalizeGarrafasChallenge: async () => {},
   updateUserProfile: async () => {},
   notifications: [],
   dismissCurrentNotification: () => {},
@@ -155,20 +157,23 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       });
   }, [user]);
 
-  const logCombinacaoTotalAttempt = useCallback(async (challengeId: string, combination: string) => {
+  const finalizePasswordChallenge = useCallback(async (challengeId: string, errorCount: number, wasFirstTry: boolean) => {
     if (!user) return;
-    // FIX: Switched to v8 syntax for doc()
     const userRef = db.doc(`users/${user.name}`);
-    const challengeDocRef = db.doc(`combinacao_total_challenges/${challengeId}`);
-    
-    try {
-        // FIX: Switched to v8 syntax for getDoc()
-        const challengeDoc = await challengeDocRef.get();
-        if (!challengeDoc.exists) return;
-        const challenge = challengeDoc.data() as CombinacaoTotalChallenge;
-        if (!challenge) return;
+    const gameId = `password_unlock_${challengeId}`;
+    const stats: GameStat = {
+        successFirstTry: wasFirstTry ? 1 : 0,
+        successOther: wasFirstTry ? 0 : 1,
+        errors: errorCount,
+        completionTimestamp: firebase.firestore.FieldValue.serverTimestamp(),
+    };
+    await userRef.update({ [`gameStats.${gameId}`]: stats });
+  }, [user]);
 
-        // FIX: Switched to v8 syntax for runTransaction()
+  const finalizeCombinacaoTotalChallenge = useCallback(async (challengeId: string, foundCombinations: string[]) => {
+    if (!user) return;
+    const userRef = db.doc(`users/${user.name}`);
+    try {
         await db.runTransaction(async (transaction) => {
             const userDoc = await transaction.get(userRef);
             if (!userDoc.exists) return;
@@ -176,34 +181,27 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
             const profile = userDoc.data() as UserProfile;
             const existingStats = profile.combinacaoTotalStats || [];
             const statIndex = existingStats.findIndex(s => s.challengeId === challengeId);
-            let newStats: CombinacaoTotalStat[];
+            
+            const finalStat: CombinacaoTotalStat = {
+                challengeId,
+                foundCombinations,
+                isComplete: true,
+                completionTimestamp: firebase.firestore.FieldValue.serverTimestamp(),
+            };
 
             if (statIndex > -1) {
-                const oldStat = existingStats[statIndex];
-                if (oldStat.foundCombinations.includes(combination)) return;
-                const updatedStat = { ...oldStat, foundCombinations: [...oldStat.foundCombinations, combination].sort() };
-                if (updatedStat.foundCombinations.length >= challenge.totalCombinations) {
-                    updatedStat.isComplete = true;
-                    if (!updatedStat.completionTimestamp) updatedStat.completionTimestamp = new Date();
-                }
-                newStats = [...existingStats];
-                newStats[statIndex] = updatedStat;
+                existingStats[statIndex] = finalStat;
             } else {
-                const newStat: CombinacaoTotalStat = { challengeId, foundCombinations: [combination], isComplete: false };
-                if (newStat.foundCombinations.length >= challenge.totalCombinations) {
-                    newStat.isComplete = true;
-                    newStat.completionTimestamp = new Date();
-                }
-                newStats = [...existingStats, newStat];
+                existingStats.push(finalStat);
             }
-            transaction.update(userRef, { combinacaoTotalStats: newStats });
+            transaction.update(userRef, { combinacaoTotalStats: existingStats });
         });
     } catch (e) {
-        console.error("Error logging combination total attempt:", e);
+        console.error("Error finalizing combination challenge:", e);
     }
   }, [user]);
 
-  const logGarrafasAttempt = useCallback(async (challengeId: string, attempts: number, isCorrect: boolean) => {
+  const finalizeGarrafasChallenge = useCallback(async (challengeId: string, attempts: number) => {
     if (!user) return;
     const userRef = db.doc(`users/${user.name}`);
 
@@ -215,30 +213,24 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
             const profile = userDoc.data() as UserProfile;
             const existingStats = profile.garrafasStats || [];
             const statIndex = existingStats.findIndex(s => s.challengeId === challengeId);
-            let newStats: GarrafasStat[];
+            
+            const finalStat: GarrafasStat = {
+                challengeId,
+                attempts,
+                isComplete: true,
+                completionTimestamp: firebase.firestore.FieldValue.serverTimestamp(),
+            };
 
             if (statIndex > -1) {
-                const oldStat = existingStats[statIndex];
-                if (oldStat.isComplete) return;
-                const updatedStat = { ...oldStat, attempts };
-                if (isCorrect) {
-                    updatedStat.isComplete = true;
-                    updatedStat.completionTimestamp = new Date(); // Use client time, compatible with array updates
-                }
-                newStats = [...existingStats];
-                newStats[statIndex] = updatedStat;
+                if (existingStats[statIndex].isComplete) return; // Already completed, do nothing
+                existingStats[statIndex] = finalStat;
             } else {
-                const newStat: GarrafasStat = { challengeId, attempts, isComplete: false };
-                if (isCorrect) {
-                    newStat.isComplete = true;
-                    newStat.completionTimestamp = new Date(); // Use client time, compatible with array updates
-                }
-                newStats = [...existingStats, newStat];
+                existingStats.push(finalStat);
             }
-            transaction.update(userRef, { garrafasStats: newStats });
+            transaction.update(userRef, { garrafasStats: existingStats });
         });
     } catch (e) {
-        console.error("Error logging garrafas attempt:", e);
+        console.error("Error finalizing garrafas challenge:", e);
     }
   }, [user]);
 
@@ -254,8 +246,9 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       addXp,
       earnBadge,
       logAttempt,
-      logCombinacaoTotalAttempt,
-      logGarrafasAttempt,
+      finalizePasswordChallenge,
+      finalizeCombinacaoTotalChallenge,
+      finalizeGarrafasChallenge,
       updateUserProfile,
       notifications,
       dismissCurrentNotification,
