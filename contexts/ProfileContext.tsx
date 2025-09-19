@@ -28,7 +28,7 @@ export const getLevelColor = (level: number): string => {
 interface ProfileContextType {
   addXp: (amount: number) => Promise<void>;
   earnBadge: (badgeId: string) => Promise<void>;
-  logAttempt: (gameId: string, success: boolean, firstTry: boolean) => Promise<void>;
+  finalizeStandardGame: (gameId: string, sessionStats: { firstTry: number; other: number; errors: number; xp: number; medalId?: string; }) => Promise<void>;
   finalizePasswordChallenge: (challengeId: string, errorCount: number, wasFirstTry: boolean) => Promise<void>;
   finalizeCombinacaoTotalChallenge: (challengeId: string, foundCombinations: string[]) => Promise<void>;
   finalizeGarrafasChallenge: (challengeId: string, attempts: number) => Promise<void>;
@@ -40,7 +40,7 @@ interface ProfileContextType {
 export const ProfileContext = createContext<ProfileContextType>({
   addXp: async () => {},
   earnBadge: async () => {},
-  logAttempt: async () => {},
+  finalizeStandardGame: async () => {},
   finalizePasswordChallenge: async () => {},
   finalizeCombinacaoTotalChallenge: async () => {},
   finalizeGarrafasChallenge: async () => {},
@@ -130,32 +130,86 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   }, [addNotification, user]);
 
-  const logAttempt = useCallback(async (gameId: string, success: boolean, firstTry: boolean) => {
-      if (!user) return;
-      // FIX: Switched to v8 syntax for doc()
-      const userRef = db.doc(`users/${user.name}`);
-      
-      const gameStats = user.gameStats || {};
-      const currentStats: GameStat = gameStats[gameId] || { successFirstTry: 0, successOther: 0, errors: 0 };
+  const finalizeStandardGame = useCallback(async (
+    gameId: string,
+    sessionStats: { firstTry: number; other: number; errors: number; xp: number; medalId?: string; }
+  ) => {
+    if (!user) return;
+    const userRef = db.doc(`users/${user.name}`);
 
-      if (success) {
-          if (firstTry) currentStats.successFirstTry++;
-          else currentStats.successOther++;
+    try {
+        await db.runTransaction(async (transaction) => {
+            const doc = await transaction.get(userRef);
+            if (!doc.exists) return;
+            const profile = doc.data() as UserProfile;
 
-          if (gameId.startsWith('password_unlock_') && currentStats.successFirstTry + currentStats.successOther === 1) {
-              // FIX: Switched to v8 syntax for serverTimestamp()
-              currentStats.completionTimestamp = firebase.firestore.FieldValue.serverTimestamp();
-          }
+            // 1. Update GameStats
+            const gameStats = { ...profile.gameStats };
+            const currentStats: GameStat = gameStats[gameId] || { successFirstTry: 0, successOther: 0, errors: 0 };
+            currentStats.successFirstTry += sessionStats.firstTry;
+            currentStats.successOther += sessionStats.other;
+            currentStats.errors += sessionStats.errors;
+            gameStats[gameId] = currentStats;
 
-      } else {
-          currentStats.errors++;
-      }
-      
-      // FIX: Switched to v8 syntax for updateDoc()
-      await userRef.update({
-        [`gameStats.${gameId}`]: currentStats
-      });
-  }, [user]);
+            // 2. Update XP and Level
+            const newXp = profile.xp + sessionStats.xp;
+            let newLevel = profile.level;
+            let leveledUp = false;
+            let levelBadges: string[] = [];
+            let xpForNext = getXpForNextLevel(newLevel);
+            const initialLevel = profile.level;
+
+            while (newXp >= xpForNext) {
+                newLevel++;
+                leveledUp = true;
+                const awarded = checkAndAwardLevelBadges(newLevel, profile.badges || []);
+                levelBadges.push(...awarded);
+                xpForNext = getXpForNextLevel(newLevel);
+            }
+
+            // 3. Update Badges
+            let newBadges = [...(profile.badges || [])];
+            if (sessionStats.medalId && !newBadges.includes(sessionStats.medalId)) {
+                const badgeInfo = ALL_BADGES_MAP.get(sessionStats.medalId);
+                if (badgeInfo) {
+                    const prefix = sessionStats.medalId.substring(0, sessionStats.medalId.lastIndexOf('_'));
+                    if (badgeInfo.tier === 'gold') newBadges = newBadges.filter(b => !b.startsWith(prefix) || b === `${prefix}_hard` || b === `${prefix}_medium` || b === `${prefix}_easy`);
+                    else if (badgeInfo.tier === 'silver') newBadges = newBadges.filter(b => b !== `${prefix}_bronze`);
+                    newBadges.push(sessionStats.medalId);
+                }
+            }
+            newBadges.push(...levelBadges);
+            newBadges = [...new Set(newBadges)];
+
+            // 4. Perform transaction update
+            transaction.update(userRef, {
+                gameStats,
+                xp: newXp,
+                level: newLevel,
+                badges: newBadges
+            });
+
+            // 5. Trigger notifications after transaction is committed
+            setTimeout(() => {
+                if (leveledUp) addNotification({ type: 'level', payload: { from: initialLevel, to: newLevel } });
+                
+                if (sessionStats.medalId && !profile.badges.includes(sessionStats.medalId)) {
+                    const badgeInfo = ALL_BADGES_MAP.get(sessionStats.medalId);
+                    if(badgeInfo) addNotification({ type: 'badge', payload: badgeInfo });
+                }
+                
+                levelBadges.forEach(bId => {
+                    if (!profile.badges.includes(bId)) {
+                        const bInfo = ALL_BADGES_MAP.get(bId);
+                        if(bInfo) addNotification({ type: 'badge', payload: bInfo });
+                    }
+                });
+            }, 0);
+        });
+    } catch (e) {
+        console.error("Game finalization transaction failed: ", e);
+    }
+  }, [user, addNotification, checkAndAwardLevelBadges]);
 
   const finalizePasswordChallenge = useCallback(async (challengeId: string, errorCount: number, wasFirstTry: boolean) => {
     if (!user) return;
@@ -245,7 +299,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
     <ProfileContext.Provider value={{
       addXp,
       earnBadge,
-      logAttempt,
+      finalizeStandardGame,
       finalizePasswordChallenge,
       finalizeCombinacaoTotalChallenge,
       finalizeGarrafasChallenge,

@@ -49,12 +49,12 @@ const shuffleArray = <T,>(array: T[]): T[] => {
 
 export const CoordenadasGeograficasGame: React.FC<CoordenadasGeograficasGameProps> = ({ onReturnToMenu, onAdvance, advanceButtonText }) => {
   const { user } = useContext(AuthContext);
-  const { addXp, earnBadge, logAttempt } = useContext(ProfileContext);
+  const { finalizeStandardGame } = useContext(ProfileContext);
   const [challenges, setChallenges] = useState<GeoPoint[]>([]);
   const [currentChallengeIndex, setCurrentChallengeIndex] = useState<number>(0);
   const [targetCoordinate, setTargetCoordinate] = useState<GeoPoint | null>(null);
   
-  const [firstTrySuccesses, setFirstTrySuccesses] = useState<number>(0);
+  const [sessionStats, setSessionStats] = useState({ firstTry: 0, other: 0, errors: 0 });
   const [isFirstAttempt, setIsFirstAttempt] = useState<boolean>(true);
   const [comboCount, setComboCount] = useState(0);
 
@@ -91,7 +91,7 @@ export const CoordenadasGeograficasGame: React.FC<CoordenadasGeograficasGameProp
     setChallenges(newChallenges);
     setCurrentChallengeIndex(0);
     setTargetCoordinate(newChallenges[0]);
-    setFirstTrySuccesses(0);
+    setSessionStats({ firstTry: 0, other: 0, errors: 0 });
     setSessionXp(0);
     setGameOver(false);
     setComboCount(0);
@@ -105,25 +105,25 @@ export const CoordenadasGeograficasGame: React.FC<CoordenadasGeograficasGameProp
   }, [initializeGame]);
   
   const completeGame = useCallback(async () => {
-    try {
-        setGameOver(true);
-        setUserMessage('');
-        const medal = getMedalForScore('geo', firstTrySuccesses, TOTAL_CHALLENGES);
-        if (medal) {
-            await earnBadge(medal.id);
-        }
-        await addXp(50); // Bonus XP
-        setSessionXp(prev => prev + 50);
-    } catch (error) {
-        console.error("Erro ao completar o jogo:", error);
-        showTemporaryMessage("Erro ao salvar a pontuação final.", 'error', 4000);
-    }
-  }, [addXp, earnBadge, firstTrySuccesses, showTemporaryMessage]);
+    setGameOver(true);
+    setUserMessage('');
+    const medal = getMedalForScore('geo', sessionStats.firstTry, TOTAL_CHALLENGES);
+    const bonusXp = 50;
+
+    await finalizeStandardGame(GAME_ID, {
+        ...sessionStats,
+        xp: sessionXp + bonusXp,
+        medalId: medal?.id,
+    });
+    
+    setSessionXp(prev => prev + 50);
+
+  }, [finalizeStandardGame, sessionStats, sessionXp]);
 
   const handleGuessSubmit = useCallback(async (guessedCoords: InputPoint) => {
     if (gameOver || !targetCoordinate) return;
 
-    setIsChallengeActive(false); // Disable input immediately to prevent double submission
+    setIsChallengeActive(false);
 
     try {
         const guessedLon = guessedCoords.x;
@@ -131,7 +131,11 @@ export const CoordenadasGeograficasGame: React.FC<CoordenadasGeograficasGameProp
 
         if (guessedLat === targetCoordinate.lat && guessedLon === targetCoordinate.lon) {
             playSuccessSound();
-            await logAttempt(GAME_ID, true, isFirstAttempt);
+            if (isFirstAttempt) {
+                setSessionStats(s => ({...s, firstTry: s.firstTry + 1}));
+            } else {
+                setSessionStats(s => ({...s, other: s.other + 1}));
+            }
             
             const newCombo = comboCount + 1;
             const comboBonus = newCombo >= COMBO_THRESHOLD ? Math.min(newCombo - COMBO_THRESHOLD + 2, 5) : 1;
@@ -140,14 +144,9 @@ export const CoordenadasGeograficasGame: React.FC<CoordenadasGeograficasGameProp
             const message = newCombo >= COMBO_THRESHOLD ? `Correto! Combo ${newCombo}x!` : "Correto!";
             showTemporaryMessage(message, 'success');
 
-            await addXp(xpGained);
             setSessionXp(prev => prev + xpGained);
             setXpAnimation({ amount: xpGained, key: Date.now(), combo: newCombo });
             setComboCount(newCombo);
-
-            if (isFirstAttempt) {
-                setFirstTrySuccesses(prev => prev + 1);
-            }
             
             const nextChallengeIndex = currentChallengeIndex + 1;
             
@@ -165,7 +164,7 @@ export const CoordenadasGeograficasGame: React.FC<CoordenadasGeograficasGameProp
 
         } else {
             playErrorSound();
-            await logAttempt(GAME_ID, false, false);
+            setSessionStats(s => ({...s, errors: s.errors + 1}));
             let errorMessage = `Incorreto! Se precisar de ajuda, clique no botão de dica 💡`;
 
             if (guessedLat === targetCoordinate.lon && guessedLon === targetCoordinate.lat) {
@@ -175,14 +174,14 @@ export const CoordenadasGeograficasGame: React.FC<CoordenadasGeograficasGameProp
             showTemporaryMessage(errorMessage, 'error', 3000);
             setIsFirstAttempt(false);
             setComboCount(0);
-            setIsChallengeActive(true); // Re-enable for another try
+            setIsChallengeActive(true);
         }
     } catch (error) {
         console.error("Erro ao submeter a resposta:", error);
-        showTemporaryMessage("Ocorreu um erro ao salvar seu progresso. Verifique sua conexão e tente novamente.", 'error', 5000);
-        setIsChallengeActive(true); // Re-enable so user isn't stuck
+        showTemporaryMessage("Ocorreu um erro ao processar sua resposta. Tente novamente.", 'error', 5000);
+        setIsChallengeActive(true);
     }
-  }, [gameOver, targetCoordinate, currentChallengeIndex, challenges, showTemporaryMessage, isFirstAttempt, addXp, completeGame, comboCount, logAttempt]);
+  }, [gameOver, targetCoordinate, currentChallengeIndex, challenges, showTemporaryMessage, isFirstAttempt, completeGame, comboCount]);
   
   const handleHintClick = () => {
     if (!targetCoordinate || gameOver) return;
@@ -258,7 +257,7 @@ export const CoordenadasGeograficasGame: React.FC<CoordenadasGeograficasGameProp
 
         {gameOver ? (
           <ResultsScreen
-            successes={firstTrySuccesses}
+            successes={sessionStats.firstTry}
             total={challenges.length}
             xpEarned={sessionXp}
             badgePrefix="geo"

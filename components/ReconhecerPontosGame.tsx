@@ -46,13 +46,13 @@ interface ReconhecerPontosGameProps {
 
 export const ReconhecerPontosGame: React.FC<ReconhecerPontosGameProps> = ({ onReturnToMenu, onAdvance, advanceButtonText }) => {
   const { user } = useContext(AuthContext);
-  const { addXp, earnBadge, logAttempt } = useContext(ProfileContext);
+  const { finalizeStandardGame } = useContext(ProfileContext);
   const [allPossibleCoordinates] = useState<Point[]>(generateAllCoordinates());
   const [challenges, setChallenges] = useState<Point[]>([]);
   const [currentChallengeIndex, setCurrentChallengeIndex] = useState<number>(0);
   const [targetCoordinate, setTargetCoordinate] = useState<Point | null>(null);
   
-  const [firstTrySuccesses, setFirstTrySuccesses] = useState<number>(0);
+  const [sessionStats, setSessionStats] = useState({ firstTry: 0, other: 0, errors: 0 });
   const [isFirstAttempt, setIsFirstAttempt] = useState<boolean>(true);
   const [comboCount, setComboCount] = useState(0);
   
@@ -91,7 +91,7 @@ export const ReconhecerPontosGame: React.FC<ReconhecerPontosGameProps> = ({ onRe
     setChallenges(newChallenges);
     setCurrentChallengeIndex(0);
     setTargetCoordinate(newChallenges[0]);
-    setFirstTrySuccesses(0);
+    setSessionStats({ firstTry: 0, other: 0, errors: 0 });
     setSessionXp(0);
     setGameOver(false);
     setComboCount(0);
@@ -107,20 +107,29 @@ export const ReconhecerPontosGame: React.FC<ReconhecerPontosGameProps> = ({ onRe
   const completeGame = useCallback(async () => {
     setGameOver(true);
     setUserMessage('');
-    const medal = getMedalForScore('recognize_points', firstTrySuccesses, TOTAL_CHALLENGES);
-    if (medal) {
-        await earnBadge(medal.id);
-    }
-    await addXp(50); // Bonus XP
+    const medal = getMedalForScore(GAME_ID, sessionStats.firstTry, TOTAL_CHALLENGES);
+    const bonusXp = 50;
+    
+    await finalizeStandardGame(GAME_ID, {
+      ...sessionStats,
+      xp: sessionXp + bonusXp,
+      medalId: medal?.id,
+    });
+
     setSessionXp(prev => prev + 50);
-  }, [addXp, earnBadge, firstTrySuccesses]);
+  }, [finalizeStandardGame, sessionStats, sessionXp]);
 
   const handleGuessSubmit = useCallback(async (guessedCoords: Point) => {
     if (gameOver || !targetCoordinate) return;
 
     if (guessedCoords.x === targetCoordinate.x && guessedCoords.y === targetCoordinate.y) {
       playSuccessSound();
-      await logAttempt(GAME_ID, true, isFirstAttempt);
+      
+      if (isFirstAttempt) {
+        setSessionStats(s => ({ ...s, firstTry: s.firstTry + 1 }));
+      } else {
+        setSessionStats(s => ({ ...s, other: s.other + 1 }));
+      }
       
       const newCombo = comboCount + 1;
       const comboBonus = newCombo >= COMBO_THRESHOLD ? Math.min(newCombo - COMBO_THRESHOLD + 2, 5) : 1;
@@ -129,14 +138,10 @@ export const ReconhecerPontosGame: React.FC<ReconhecerPontosGameProps> = ({ onRe
       const message = newCombo >= COMBO_THRESHOLD ? `Correto! Combo ${newCombo}x!` : "Correto!";
       showTemporaryMessage(message, 'success');
 
-      await addXp(xpGained);
       setSessionXp(prev => prev + xpGained);
       setXpAnimation({ amount: xpGained, key: Date.now(), combo: newCombo });
       setComboCount(newCombo);
 
-      if (isFirstAttempt) {
-        setFirstTrySuccesses(prev => prev + 1);
-      }
       setIsChallengeActive(false);
       
       const nextChallengeIndex = currentChallengeIndex + 1;
@@ -155,7 +160,7 @@ export const ReconhecerPontosGame: React.FC<ReconhecerPontosGameProps> = ({ onRe
 
     } else {
       playErrorSound();
-      await logAttempt(GAME_ID, false, false);
+      setSessionStats(s => ({ ...s, errors: s.errors + 1 }));
       let errorMessage = `Incorreto! Se precisar de ajuda, clique no botão de dica 💡`;
       if (guessedCoords.x === targetCoordinate.y && guessedCoords.y === targetCoordinate.x) {
           errorMessage = "Você inverteu os eixos! Lembre-se, o formato é (X, Y). Tente de novo ou use a dica 💡";
@@ -164,7 +169,7 @@ export const ReconhecerPontosGame: React.FC<ReconhecerPontosGameProps> = ({ onRe
       setIsFirstAttempt(false);
       setComboCount(0);
     }
-  }, [gameOver, targetCoordinate, currentChallengeIndex, challenges, showTemporaryMessage, isFirstAttempt, addXp, completeGame, comboCount, logAttempt]);
+  }, [gameOver, targetCoordinate, currentChallengeIndex, challenges, showTemporaryMessage, isFirstAttempt, completeGame, comboCount]);
 
   const handleHintClick = () => {
     if (!targetCoordinate || gameOver) return;
@@ -241,10 +246,10 @@ export const ReconhecerPontosGame: React.FC<ReconhecerPontosGameProps> = ({ onRe
 
         {gameOver ? (
           <ResultsScreen
-            successes={firstTrySuccesses}
+            successes={sessionStats.firstTry}
             total={challenges.length}
             xpEarned={sessionXp}
-            badgePrefix="recognize_points"
+            badgePrefix={GAME_ID}
             onRestart={initializeGame}
             onReturnToMenu={onReturnToMenu}
             onAdvance={onAdvance}

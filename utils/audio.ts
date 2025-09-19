@@ -1,16 +1,18 @@
+import { Howl } from 'howler';
+
 const sounds = {
-  success: new Audio('https://actions.google.com/sounds/v1/positive/success.ogg'),
-  error: new Audio('https://actions.google.com/sounds/v1/alarms/disallowed_action.ogg'),
-  levelUp: new Audio('https://actions.google.com/sounds/v1/cartoon/magic_chime.ogg'),
-  badge: new Audio('https://actions.google.com/sounds/v1/achievements/achievement_unlocked.ogg'),
-  click: new Audio('https://actions.google.com/sounds/v1/ui/ui_tap_forward.ogg'),
-  duelStart: new Audio('https://actions.google.com/sounds/v1/weapons/sword_clank.ogg')
+  success: new Howl({ src: ['https://actions.google.com/sounds/v1/positive/success.mp3'] }),
+  error: new Howl({ src: ['https://actions.google.com/sounds/v1/alarms/disallowed_action.mp3'] }),
+  levelUp: new Howl({ src: ['https://actions.google.com/sounds/v1/cartoon/magic_chime.mp3'] }),
+  badge: new Howl({ src: ['https://actions.google.com/sounds/v1/achievements/achievement_unlocked.mp3'] }),
+  click: new Howl({ src: ['https://actions.google.com/sounds/v1/ui/ui_tap_forward.mp3'] }),
+  duelStart: new Howl({ src: ['https://actions.google.com/sounds/v1/weapons/sword_clank.mp3'] })
 };
 
-const playSound = (sound: HTMLAudioElement) => {
-  // Reset playback to the start and play the sound
-  sound.currentTime = 0;
-  sound.play().catch(error => console.error(`Error playing sound: ${sound.src}`, error));
+const playSound = (sound: Howl) => {
+  if (!sound.playing()) {
+    sound.play();
+  }
 };
 
 export const playSuccessSound = () => playSound(sounds.success);

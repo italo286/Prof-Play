@@ -15,7 +15,8 @@
     "html2canvas": "1.4.1",
     "jspdf-autotable": "3.8.2",
     "firebase": "10.12.2",
-    "@google/genai": "latest"
+    "@google/genai": "latest",
+    "howler": "2.2.4"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

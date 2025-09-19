@@ -47,7 +47,7 @@ const generateRandomPointInQuadrant = (quadrant: number): Point => {
 
 export const SimetriaSegmentosGame: React.FC<SimetriaSegmentosGameProps> = ({ onReturnToMenu, onAdvance, advanceButtonText }) => {
   const { user } = useContext(AuthContext);
-  const { addXp, earnBadge, logAttempt } = useContext(ProfileContext);
+  const { finalizeStandardGame } = useContext(ProfileContext);
   const [difficulty, setDifficulty] = useState<Difficulty | null>(null);
   const [challenge, setChallenge] = useState<{ points: Point[]; symmetry: SymmetryType } | null>(null);
   const [userClickedPoints, setUserClickedPoints] = useState<Point[]>([]);
@@ -59,7 +59,7 @@ export const SimetriaSegmentosGame: React.FC<SimetriaSegmentosGameProps> = ({ on
   const [gameOver, setGameOver] = useState<boolean>(false);
   const [isChecking, setIsChecking] = useState<boolean>(false);
 
-  const [firstTrySuccesses, setFirstTrySuccesses] = useState<number>(0);
+  const [sessionStats, setSessionStats] = useState({ firstTry: 0, other: 0, errors: 0 });
   const [isFirstAttempt, setIsFirstAttempt] = useState<boolean>(true);
   const [comboCount, setComboCount] = useState(0);
   
@@ -108,7 +108,7 @@ export const SimetriaSegmentosGame: React.FC<SimetriaSegmentosGameProps> = ({ on
   const startGame = useCallback((diff: Difficulty) => {
     setDifficulty(diff);
     setChallengeNumber(1);
-    setFirstTrySuccesses(0);
+    setSessionStats({ firstTry: 0, other: 0, errors: 0 });
     setSessionXp(0);
     setGameOver(false);
     setIsChecking(false);
@@ -119,16 +119,19 @@ export const SimetriaSegmentosGame: React.FC<SimetriaSegmentosGameProps> = ({ on
     if (!difficulty) return;
     setGameOver(true);
     setUserMessage('');
-    const badgePrefix = `segments_${difficulty}`;
-    const medal = getMedalForScore(badgePrefix, firstTrySuccesses, TOTAL_CHALLENGES);
-    if(medal) {
-        await earnBadge(medal.id);
-    }
-
+    const gameId = `${GAME_ID}_${difficulty}`;
+    const medal = getMedalForScore(gameId, sessionStats.firstTry, TOTAL_CHALLENGES);
+    
     const bonusXp = 50 + ({easy: 0, medium: 25, hard: 50}[difficulty]);
-    await addXp(bonusXp);
+    
+    await finalizeStandardGame(gameId, {
+        ...sessionStats,
+        xp: sessionXp + bonusXp,
+        medalId: medal?.id,
+    });
+
     setSessionXp(prev => prev + bonusXp);
-  }, [addXp, earnBadge, difficulty, firstTrySuccesses]);
+  }, [difficulty, finalizeStandardGame, sessionStats, sessionXp]);
 
   const nextChallenge = useCallback(() => {
     if (challengeNumber + 1 > TOTAL_CHALLENGES) {
@@ -163,7 +166,11 @@ export const SimetriaSegmentosGame: React.FC<SimetriaSegmentosGameProps> = ({ on
       setIsChecking(true);
       if (isCorrect) {
           playSuccessSound();
-          await logAttempt(`${GAME_ID}_${difficulty}`, true, isFirstAttempt);
+          if (isFirstAttempt) {
+            setSessionStats(s => ({...s, firstTry: s.firstTry + 1}));
+          } else {
+            setSessionStats(s => ({...s, other: s.other + 1}));
+          }
           
           const newCombo = comboCount + 1;
           const comboBonus = newCombo >= COMBO_THRESHOLD ? Math.min(newCombo - COMBO_THRESHOLD + 2, 5) : 1;
@@ -173,21 +180,17 @@ export const SimetriaSegmentosGame: React.FC<SimetriaSegmentosGameProps> = ({ on
           setUserMessage(message);
           setMessageType('success');
           
-          await addXp(xpGained);
           setSessionXp(prev => prev + xpGained);
           setXpAnimation({ amount: xpGained, key: Date.now(), combo: newCombo });
           setComboCount(newCombo);
-
-          if (isFirstAttempt) {
-            setFirstTrySuccesses(prev => prev + 1);
-          }
+          
           setTimeout(() => {
               setIsChecking(false);
               nextChallenge();
           }, 1500);
       } else {
           playErrorSound();
-          await logAttempt(`${GAME_ID}_${difficulty}`, false, false);
+          setSessionStats(s => ({...s, errors: s.errors + 1}));
           setUserMessage('Incorreto. Se precisar de ajuda, use a dica 💡');
           setMessageType('error');
           setIsFirstAttempt(false);
@@ -199,7 +202,7 @@ export const SimetriaSegmentosGame: React.FC<SimetriaSegmentosGameProps> = ({ on
               setMessageType('info');
           }, 1500);
       }
-  }, [userClickedPoints, challenge, isFirstAttempt, nextChallenge, addXp, comboCount, difficulty, logAttempt]);
+  }, [userClickedPoints, challenge, isFirstAttempt, nextChallenge, comboCount, difficulty]);
 
   useEffect(() => {
     if (userClickedPoints.length === pointsToWin && pointsToWin > 0) {
@@ -299,10 +302,10 @@ export const SimetriaSegmentosGame: React.FC<SimetriaSegmentosGameProps> = ({ on
 
          {!difficulty ? renderDifficultySelector() : gameOver ? (
            <ResultsScreen 
-              successes={firstTrySuccesses} 
+              successes={sessionStats.firstTry} 
               total={TOTAL_CHALLENGES}
               xpEarned={sessionXp}
-              badgePrefix={`segments_${difficulty}`}
+              badgePrefix={`${GAME_ID}_${difficulty}`}
               onRestart={() => startGame(difficulty)} 
               onReturnToMenu={onReturnToMenu}
               onAdvance={onAdvance}

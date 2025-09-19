@@ -58,7 +58,7 @@ const getRandomSymmetryType = (): SymmetryType => {
 
 export const SimetriaPontosGame: React.FC<SimetriaPontosGameProps> = ({ onReturnToMenu, onAdvance, advanceButtonText }) => {
   const { user } = useContext(AuthContext);
-  const { addXp, earnBadge, logAttempt } = useContext(ProfileContext);
+  const { finalizeStandardGame } = useContext(ProfileContext);
   const [challenge, setChallenge] = useState<{ point: Point; type: SymmetryType } | null>(null);
   const [userMessage, setUserMessage] = useState<string>('');
   const [messageType, setMessageType] = useState<MessageType>('info');
@@ -66,7 +66,7 @@ export const SimetriaPontosGame: React.FC<SimetriaPontosGameProps> = ({ onReturn
   const [gameOver, setGameOver] = useState<boolean>(false);
   const [isChecking, setIsChecking] = useState<boolean>(false);
 
-  const [firstTrySuccesses, setFirstTrySuccesses] = useState<number>(0);
+  const [sessionStats, setSessionStats] = useState({ firstTry: 0, other: 0, errors: 0 });
   const [isFirstAttempt, setIsFirstAttempt] = useState<boolean>(true);
   const [comboCount, setComboCount] = useState(0);
   
@@ -83,13 +83,17 @@ export const SimetriaPontosGame: React.FC<SimetriaPontosGameProps> = ({ onReturn
     setGameOver(true);
     setUserMessage('');
     setChallenge(null);
-    const medal = getMedalForScore('symmetry_points', firstTrySuccesses, TOTAL_CHALLENGES);
-    if (medal) {
-        await earnBadge(medal.id);
-    }
-    await addXp(50); // Bonus XP
+    const medal = getMedalForScore(GAME_ID, sessionStats.firstTry, TOTAL_CHALLENGES);
+    const bonusXp = 50;
+    
+    await finalizeStandardGame(GAME_ID, {
+      ...sessionStats,
+      xp: sessionXp + bonusXp,
+      medalId: medal?.id,
+    });
+    
     setSessionXp(prev => prev + 50);
-  }, [addXp, earnBadge, firstTrySuccesses]);
+  }, [finalizeStandardGame, sessionStats, sessionXp]);
   
   const resetChallengeState = () => {
       setIsFirstAttempt(true);
@@ -99,7 +103,7 @@ export const SimetriaPontosGame: React.FC<SimetriaPontosGameProps> = ({ onReturn
   const initializeGame = useCallback(() => {
     setGameOver(false);
     setIsChecking(false);
-    setFirstTrySuccesses(0);
+    setSessionStats({ firstTry: 0, other: 0, errors: 0 });
     setSessionXp(0);
     setChallengeNumber(1);
     setComboCount(0);
@@ -135,7 +139,12 @@ export const SimetriaPontosGame: React.FC<SimetriaPontosGameProps> = ({ onReturn
 
     if (x === correctPoint.x && y === correctPoint.y) {
       playSuccessSound();
-      await logAttempt(GAME_ID, true, isFirstAttempt);
+      
+      if (isFirstAttempt) {
+        setSessionStats(s => ({ ...s, firstTry: s.firstTry + 1 }));
+      } else {
+        setSessionStats(s => ({ ...s, other: s.other + 1 }));
+      }
 
       const newCombo = comboCount + 1;
       const comboBonus = newCombo >= COMBO_THRESHOLD ? Math.min(newCombo - COMBO_THRESHOLD + 2, 5) : 1;
@@ -143,17 +152,12 @@ export const SimetriaPontosGame: React.FC<SimetriaPontosGameProps> = ({ onReturn
       
       const message = newCombo >= COMBO_THRESHOLD ? `Correto! Combo ${newCombo}x!` : "Correto!";
       setUserMessage(message);
-
       setMessageType('success');
       
-      await addXp(xpGained);
       setSessionXp(prev => prev + xpGained);
       setXpAnimation({ amount: xpGained, key: Date.now(), combo: newCombo });
       setComboCount(newCombo);
 
-      if (isFirstAttempt) {
-        setFirstTrySuccesses(prev => prev + 1);
-      }
       setIsChecking(true);
       setTimeout(() => {
         setIsChecking(false);
@@ -161,7 +165,7 @@ export const SimetriaPontosGame: React.FC<SimetriaPontosGameProps> = ({ onReturn
       }, 1500);
     } else {
       playErrorSound();
-      await logAttempt(GAME_ID, false, false);
+      setSessionStats(s => ({ ...s, errors: s.errors + 1 }));
       setIsFirstAttempt(false);
       setComboCount(0);
       
@@ -246,10 +250,10 @@ export const SimetriaPontosGame: React.FC<SimetriaPontosGameProps> = ({ onReturn
         
         {gameOver ? (
            <ResultsScreen
-              successes={firstTrySuccesses}
+              successes={sessionStats.firstTry}
               total={TOTAL_CHALLENGES}
               xpEarned={sessionXp}
-              badgePrefix="symmetry_points"
+              badgePrefix={GAME_ID}
               onRestart={initializeGame}
               onReturnToMenu={onReturnToMenu}
               onAdvance={onAdvance}
