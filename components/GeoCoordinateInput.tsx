@@ -14,20 +14,22 @@ const DirectionToggle: React.FC<{
   options: [string, string];
   onToggle: (value: any) => void;
   'aria-label': string;
-}> = ({ currentValue, options, onToggle, 'aria-label': ariaLabel }) => (
-  <div className="relative grid grid-cols-2 gap-1 rounded-lg p-1 bg-slate-600" aria-label={ariaLabel}>
+  disabled?: boolean;
+}> = ({ currentValue, options, onToggle, 'aria-label': ariaLabel, disabled = false }) => (
+  <div className={`relative grid grid-cols-2 gap-1 rounded-lg p-1 bg-slate-600 transition-opacity ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`} aria-label={ariaLabel}>
     {options.map(opt => (
       <button
         key={opt}
         type="button"
-        onClick={() => onToggle(opt)}
+        onClick={() => !disabled && onToggle(opt)}
+        disabled={disabled}
         className={`relative w-12 rounded-md py-1 text-sm font-medium whitespace-nowrap focus:outline-none ${
-          currentValue === opt ? 'text-white' : 'text-slate-300 hover:text-white'
-        }`}
-        aria-pressed={currentValue === opt}
+          currentValue === opt && !disabled ? 'text-white' : 'text-slate-300'
+        } ${!disabled ? 'hover:text-white' : ''}`}
+        aria-pressed={currentValue === opt && !disabled}
       >
         <span className="relative z-10">{opt}</span>
-        {currentValue === opt && (
+        {currentValue === opt && !disabled && (
           <div className="absolute inset-0 bg-sky-600 rounded-md transition-all animate-fade-in" style={{ animationDuration: '0.2s' }}></div>
         )}
       </button>
@@ -41,14 +43,17 @@ export const GeoCoordinateInput: React.FC<GeoCoordinateInputProps> = ({ onSubmit
   const [lonValue, setLonValue] = useState('');
   const [lonDir, setLonDir] = useState<LonDirection>('L');
 
+  const isLatZero = latValue.trim() === '0';
+  const isLonZero = lonValue.trim() === '0';
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     const lat = parseInt(latValue, 10);
     const lon = parseInt(lonValue, 10);
 
     if (!isNaN(lat) && !isNaN(lon)) {
-      const finalLat = latDir === 'S' ? -lat : lat;
-      const finalLon = lonDir === 'O' ? -lon : lon; // 'O' for Oeste (West)
+      const finalLat = (latDir === 'S' && !isLatZero) ? -lat : lat;
+      const finalLon = (lonDir === 'O' && !isLonZero) ? -lon : lon;
       onSubmit({ x: finalLon, y: finalLat }); // x is Lon, y is Lat
     }
   };
@@ -70,7 +75,7 @@ export const GeoCoordinateInput: React.FC<GeoCoordinateInputProps> = ({ onSubmit
           aria-label="Graus de Latitude"
           required
         />
-        <DirectionToggle currentValue={latDir} options={['N', 'S']} onToggle={setLatDir} aria-label="Seleção de direção de latitude (Norte/Sul)" />
+        <DirectionToggle currentValue={latDir} options={['N', 'S']} onToggle={setLatDir} disabled={isLatZero} aria-label="Seleção de direção de latitude (Norte/Sul)" />
       </div>
       <div className="flex items-center gap-3">
         <label htmlFor="lon-coord" className="font-bold text-slate-300 text-lg">Lon:</label>
@@ -87,7 +92,7 @@ export const GeoCoordinateInput: React.FC<GeoCoordinateInputProps> = ({ onSubmit
           aria-label="Graus de Longitude"
           required
         />
-        <DirectionToggle currentValue={lonDir} options={['L', 'O']} onToggle={setLonDir} aria-label="Seleção de direção de longitude (Leste/Oeste)" />
+        <DirectionToggle currentValue={lonDir} options={['L', 'O']} onToggle={setLonDir} disabled={isLonZero} aria-label="Seleção de direção de longitude (Leste/Oeste)" />
       </div>
       <button
         type="submit"

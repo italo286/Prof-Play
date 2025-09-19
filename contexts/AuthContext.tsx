@@ -165,13 +165,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const logout = useCallback(async () => {
-      if (user) {
-          // FIX: Switched to v8 syntax for doc and deleteDoc
-          const presenceRef = db.doc(`presence/${user.name}`);
-          await presenceRef.delete();
-      }
-      sessionStorage.removeItem(CURRENT_USER_STORAGE_KEY);
-      setUser(null);
+    try {
+        if (user) {
+            // FIX: Switched to v8 syntax for doc and deleteDoc
+            const presenceRef = db.doc(`presence/${user.name}`);
+            await presenceRef.delete();
+        }
+    } catch (error) {
+        console.error("Failed to clear presence on logout:", error);
+    } finally {
+        // This ensures logout always happens client-side, even if presence update fails.
+        sessionStorage.removeItem(CURRENT_USER_STORAGE_KEY);
+        setUser(null);
+    }
   }, [user]);
 
   return (
