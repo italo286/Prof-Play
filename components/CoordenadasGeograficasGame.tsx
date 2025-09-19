@@ -105,70 +105,82 @@ export const CoordenadasGeograficasGame: React.FC<CoordenadasGeograficasGameProp
   }, [initializeGame]);
   
   const completeGame = useCallback(async () => {
-    setGameOver(true);
-    setUserMessage('');
-    const medal = getMedalForScore('geo', firstTrySuccesses, TOTAL_CHALLENGES);
-    if (medal) {
-        await earnBadge(medal.id);
+    try {
+        setGameOver(true);
+        setUserMessage('');
+        const medal = getMedalForScore('geo', firstTrySuccesses, TOTAL_CHALLENGES);
+        if (medal) {
+            await earnBadge(medal.id);
+        }
+        await addXp(50); // Bonus XP
+        setSessionXp(prev => prev + 50);
+    } catch (error) {
+        console.error("Erro ao completar o jogo:", error);
+        showTemporaryMessage("Erro ao salvar a pontuação final.", 'error', 4000);
     }
-    await addXp(50); // Bonus XP
-    setSessionXp(prev => prev + 50);
-  }, [addXp, earnBadge, firstTrySuccesses]);
+  }, [addXp, earnBadge, firstTrySuccesses, showTemporaryMessage]);
 
   const handleGuessSubmit = useCallback(async (guessedCoords: InputPoint) => {
     if (gameOver || !targetCoordinate) return;
 
-    const guessedLon = guessedCoords.x;
-    const guessedLat = guessedCoords.y;
+    setIsChallengeActive(false); // Disable input immediately to prevent double submission
 
-    if (guessedLat === targetCoordinate.lat && guessedLon === targetCoordinate.lon) {
-      playSuccessSound();
-      await logAttempt(GAME_ID, true, isFirstAttempt);
-      
-      const newCombo = comboCount + 1;
-      const comboBonus = newCombo >= COMBO_THRESHOLD ? Math.min(newCombo - COMBO_THRESHOLD + 2, 5) : 1;
-      const xpGained = (isFirstAttempt ? 10 : 5) * comboBonus;
-      
-      const message = newCombo >= COMBO_THRESHOLD ? `Correto! Combo ${newCombo}x!` : "Correto!";
-      showTemporaryMessage(message, 'success');
+    try {
+        const guessedLon = guessedCoords.x;
+        const guessedLat = guessedCoords.y;
 
-      await addXp(xpGained);
-      setSessionXp(prev => prev + xpGained);
-      setXpAnimation({ amount: xpGained, key: Date.now(), combo: newCombo });
-      setComboCount(newCombo);
+        if (guessedLat === targetCoordinate.lat && guessedLon === targetCoordinate.lon) {
+            playSuccessSound();
+            await logAttempt(GAME_ID, true, isFirstAttempt);
+            
+            const newCombo = comboCount + 1;
+            const comboBonus = newCombo >= COMBO_THRESHOLD ? Math.min(newCombo - COMBO_THRESHOLD + 2, 5) : 1;
+            const xpGained = (isFirstAttempt ? 10 : 5) * comboBonus;
+            
+            const message = newCombo >= COMBO_THRESHOLD ? `Correto! Combo ${newCombo}x!` : "Correto!";
+            showTemporaryMessage(message, 'success');
 
+            await addXp(xpGained);
+            setSessionXp(prev => prev + xpGained);
+            setXpAnimation({ amount: xpGained, key: Date.now(), combo: newCombo });
+            setComboCount(newCombo);
 
-      if (isFirstAttempt) {
-        setFirstTrySuccesses(prev => prev + 1);
-      }
-      setIsChallengeActive(false);
-      
-      const nextChallengeIndex = currentChallengeIndex + 1;
-      
-      setTimeout(() => {
-        if (nextChallengeIndex >= challenges.length) {
-          completeGame();
+            if (isFirstAttempt) {
+                setFirstTrySuccesses(prev => prev + 1);
+            }
+            
+            const nextChallengeIndex = currentChallengeIndex + 1;
+            
+            setTimeout(() => {
+                if (nextChallengeIndex >= challenges.length) {
+                    completeGame();
+                } else {
+                    setCurrentChallengeIndex(nextChallengeIndex);
+                    setTargetCoordinate(challenges[nextChallengeIndex]);
+                    resetChallengeState();
+                    setUserMessage('Excelente! Qual o próximo ponto?');
+                    setMessageType('info');
+                }
+            }, 1500);
+
         } else {
-          setCurrentChallengeIndex(nextChallengeIndex);
-          setTargetCoordinate(challenges[nextChallengeIndex]);
-          resetChallengeState();
-          setUserMessage('Excelente! Qual o próximo ponto?');
-          setMessageType('info');
+            playErrorSound();
+            await logAttempt(GAME_ID, false, false);
+            let errorMessage = `Incorreto! Se precisar de ajuda, clique no botão de dica 💡`;
+
+            if (guessedLat === targetCoordinate.lon && guessedLon === targetCoordinate.lat) {
+                errorMessage = "Você inverteu Latitude e Longitude! Use a dica 💡 se precisar.";
+            }
+            
+            showTemporaryMessage(errorMessage, 'error', 3000);
+            setIsFirstAttempt(false);
+            setComboCount(0);
+            setIsChallengeActive(true); // Re-enable for another try
         }
-      }, 1500);
-
-    } else {
-      playErrorSound();
-      await logAttempt(GAME_ID, false, false);
-      let errorMessage = `Incorreto! Se precisar de ajuda, clique no botão de dica 💡`;
-
-      if (guessedLat === targetCoordinate.lon && guessedLon === targetCoordinate.lat) {
-          errorMessage = "Você inverteu Latitude e Longitude! Use a dica 💡 se precisar.";
-      }
-      
-      showTemporaryMessage(errorMessage, 'error', 3000);
-      setIsFirstAttempt(false);
-      setComboCount(0);
+    } catch (error) {
+        console.error("Erro ao submeter a resposta:", error);
+        showTemporaryMessage("Ocorreu um erro ao salvar seu progresso. Verifique sua conexão e tente novamente.", 'error', 5000);
+        setIsChallengeActive(true); // Re-enable so user isn't stuck
     }
   }, [gameOver, targetCoordinate, currentChallengeIndex, challenges, showTemporaryMessage, isFirstAttempt, addXp, completeGame, comboCount, logAttempt]);
   
