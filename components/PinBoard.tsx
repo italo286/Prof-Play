@@ -59,7 +59,9 @@ export const PinBoard: React.FC<PinBoardProps> = ({ pins, lines, claimedTriangle
 
           // Determine piece orientation based on Y coordinates
           const sortedY = [p1.y, p2.y, p3.y].sort((a, b) => a - b);
-          const isPointingUp = (sortedY[1] - sortedY[0]) > (sortedY[2] - sortedY[1]);
+          // FIX: The logic was inverted. A point-up triangle has a large gap between the middle and highest Y-point.
+          // This means the distance between the first two sorted points is smaller than the distance between the last two.
+          const isPointingUp = (sortedY[1] - sortedY[0]) < (sortedY[2] - sortedY[1]);
 
           const pieceSize = CELL_SPACING * PIECE_SIZE_RATIO;
           let piecePoints = '';
