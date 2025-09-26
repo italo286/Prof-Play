@@ -6,16 +6,16 @@ interface PinBoardProps {
   lines: Line[];
   claimedTriangles: ClaimedTriangle[];
   selectedPin: string | null;
+  validNextPins: Set<string>;
   onPinClick: (pinId: string) => void;
-  playerColors: Record<PlayerColor, { primary: string; secondary: string }>;
 }
 
 const PIN_RADIUS = 6;
-const CELL_SPACING = 35; // Increased spacing for a clearer view
+const CELL_SPACING = 35; 
 const SVG_PADDING = 20;
-const PIECE_SIZE_RATIO = 0.35; // Size of the piece relative to cell spacing
+const PIECE_SIZE_RATIO = 0.35; 
 
-export const PinBoard: React.FC<PinBoardProps> = ({ pins, lines, claimedTriangles, selectedPin, onPinClick, playerColors }) => {
+export const PinBoard: React.FC<PinBoardProps> = ({ pins, lines, claimedTriangles, selectedPin, validNextPins, onPinClick }) => {
   const pinArray = useMemo(() => Array.from(pins.values()), [pins]);
 
   const hexToPixel = (pin: Pin) => {
@@ -42,7 +42,6 @@ export const PinBoard: React.FC<PinBoardProps> = ({ pins, lines, claimedTriangle
   return (
     <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} aria-label="Tabuleiro de Xadrez de Triângulos">
       <g>
-        {/* Render Claimed Pieces inside Triangles */}
         {claimedTriangles.map(triangle => {
           const v1 = pins.get(triangle.vertices[0]);
           const v2 = pins.get(triangle.vertices[1]);
@@ -53,43 +52,39 @@ export const PinBoard: React.FC<PinBoardProps> = ({ pins, lines, claimedTriangle
           const p2 = hexToPixel(v2);
           const p3 = hexToPixel(v3);
 
-          // Calculate centroid
           const centerX = (p1.x + p2.x + p3.x) / 3;
           const centerY = (p1.y + p2.y + p3.y) / 3;
-
-          // Determine piece orientation based on Y coordinates
+          
           const sortedY = [p1.y, p2.y, p3.y].sort((a, b) => a - b);
-          // FIX: The logic was inverted. A point-up triangle has a large gap between the middle and highest Y-point.
-          // This means the distance between the first two sorted points is smaller than the distance between the last two.
-          const isPointingUp = (sortedY[1] - sortedY[0]) < (sortedY[2] - sortedY[1]);
+          const isPointingUp = Math.abs(sortedY[1] - sortedY[0]) > Math.abs(sortedY[2] - sortedY[1]);
 
           const pieceSize = CELL_SPACING * PIECE_SIZE_RATIO;
           let piecePoints = '';
 
           if (isPointingUp) {
-            const topY = centerY - (pieceSize * 2 / 3);
-            const botY = centerY + (pieceSize / 3);
-            const leftX = centerX - (pieceSize / Math.sqrt(3));
-            const rightX = centerX + (pieceSize / Math.sqrt(3));
+            const topY = centerY - (pieceSize * Math.sqrt(3) / 3);
+            const botY = centerY + (pieceSize * Math.sqrt(3) / 6);
+            const leftX = centerX - (pieceSize / 2);
+            const rightX = centerX + (pieceSize / 2);
             piecePoints = `${centerX + offsetX},${topY + offsetY} ${leftX + offsetX},${botY + offsetY} ${rightX + offsetX},${botY + offsetY}`;
-          } else { // Pointing down
-            const botY = centerY + (pieceSize * 2 / 3);
-            const topY = centerY - (pieceSize / 3);
-            const leftX = centerX - (pieceSize / Math.sqrt(3));
-            const rightX = centerX + (pieceSize / Math.sqrt(3));
+          } else { 
+            const botY = centerY + (pieceSize * Math.sqrt(3) / 3);
+            const topY = centerY - (pieceSize * Math.sqrt(3) / 6);
+            const leftX = centerX - (pieceSize / 2);
+            const rightX = centerX + (pieceSize / 2);
             piecePoints = `${centerX + offsetX},${botY + offsetY} ${leftX + offsetX},${topY + offsetY} ${rightX + offsetX},${topY + offsetY}`;
           }
 
+          const playerFill = triangle.owner === 'player1' ? 'fill-sky-400' : 'fill-cyan-400';
           return (
             <polygon
               key={triangle.id}
               points={piecePoints}
-              className={`${playerColors[triangle.owner].primary}`}
+              className={`${playerFill} transition-all duration-300`}
             />
           );
         })}
 
-        {/* Render Lines (Elastics) */}
         {lines.map((line, index) => {
           const fromPin = pins.get(line.from);
           const toPin = pins.get(line.to);
@@ -109,21 +104,42 @@ export const PinBoard: React.FC<PinBoardProps> = ({ pins, lines, claimedTriangle
           );
         })}
         
-        {/* Render Pins (Pillars) */}
         {pinArray.map(pin => {
           const { x, y } = hexToPixel(pin);
           const isSelected = selectedPin === pin.id;
+          const isValidNext = validNextPins.has(pin.id);
           return (
-            <circle
-              key={pin.id}
-              cx={x + offsetX}
-              cy={y + offsetY}
-              r={isSelected ? PIN_RADIUS * 1.5 : PIN_RADIUS}
-              className={`transition-all duration-200 cursor-pointer ${
-                isSelected ? 'fill-yellow-400' : 'fill-slate-700 hover:fill-slate-500'
-              }`}
-              onClick={() => onPinClick(pin.id)}
-            />
+            <g key={pin.id} onClick={() => onPinClick(pin.id)} className="cursor-pointer">
+              {isValidNext && !isSelected && (
+                <circle
+                  cx={x + offsetX}
+                  cy={y + offsetY}
+                  r={PIN_RADIUS * 1.8}
+                  className="fill-sky-500/50"
+                >
+                  <animate
+                    attributeName="r"
+                    values={`${PIN_RADIUS};${PIN_RADIUS * 1.8};${PIN_RADIUS}`}
+                    dur="1.5s"
+                    repeatCount="indefinite"
+                  />
+                  <animate
+                    attributeName="opacity"
+                    values="0;0.5;0"
+                    dur="1.5s"
+                    repeatCount="indefinite"
+                  />
+                </circle>
+              )}
+              <circle
+                cx={x + offsetX}
+                cy={y + offsetY}
+                r={isSelected ? PIN_RADIUS * 1.5 : PIN_RADIUS}
+                className={`transition-all duration-200 ${
+                  isSelected ? 'fill-yellow-400' : 'fill-slate-700 hover:fill-slate-500'
+                }`}
+              />
+            </g>
           );
         })}
       </g>
