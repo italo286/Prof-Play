@@ -361,6 +361,13 @@ export const XadrezTriangulosGame: React.FC<XadrezTriangulosGameProps> = ({ onRe
                     <i className="fas fa-hourglass-half text-4xl text-sky-400 mb-4 animate-pulse"></i>
                     <h2 className="text-2xl font-bold text-sky-300">Cor Selecionada!</h2>
                     <p className="text-slate-300 mt-2">Aguardando seu oponente escolher a cor...</p>
+                     <button
+                        onClick={() => setShowForfeitConfirm(true)}
+                        className="mt-6 px-4 py-2 bg-red-800 text-red-300 font-semibold rounded-lg hover:bg-red-700 hover:text-white text-sm"
+                    >
+                        <i className="fas fa-times-circle mr-2"></i>
+                        Abandonar Duelo
+                    </button>
                 </div>
             );
         }
@@ -370,7 +377,18 @@ export const XadrezTriangulosGame: React.FC<XadrezTriangulosGameProps> = ({ onRe
         const disabledColors = opponentColor ? [opponentColor.name] : [];
         const playerNumber = duel.players[0].name === user!.name ? 1 : 2;
 
-        return <ColorSelector onColorSelect={handleDuelColorSelect} disabledColors={disabledColors} playerNumber={playerNumber} />
+        return (
+            <div className="flex flex-col items-center">
+                <ColorSelector onColorSelect={handleDuelColorSelect} disabledColors={disabledColors} playerNumber={playerNumber} />
+                <button
+                    onClick={() => setShowForfeitConfirm(true)}
+                    className="mt-6 px-4 py-2 bg-red-800 text-red-300 font-semibold rounded-lg hover:bg-red-700 hover:text-white text-sm"
+                >
+                    <i className="fas fa-times-circle mr-2"></i>
+                    Abandonar Duelo
+                </button>
+            </div>
+        );
     }
 
     if (gameState === 'setup' && !isOnline) {
@@ -384,6 +402,13 @@ export const XadrezTriangulosGame: React.FC<XadrezTriangulosGameProps> = ({ onRe
             <div className="flex flex-col items-center justify-center p-8 text-center animate-fade-in">
                 <i className="fas fa-spinner fa-spin text-4xl text-sky-400 mb-4"></i>
                 <h2 className="text-2xl font-bold text-sky-300">Iniciando partida...</h2>
+                 <button
+                    onClick={() => setShowForfeitConfirm(true)}
+                    className="mt-6 px-4 py-2 bg-red-800 text-red-300 font-semibold rounded-lg hover:bg-red-700 hover:text-white text-sm"
+                >
+                    <i className="fas fa-times-circle mr-2"></i>
+                    Abandonar Duelo
+                </button>
             </div>
         );
     }

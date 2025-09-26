@@ -380,9 +380,8 @@ export const DuelProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!doc.exists) return;
       const duel = doc.data() as DuelState;
       const opponentName = duel.players.find(p => p.name !== user.name)?.name;
-      if (opponentName) {
-        await duelRef.update({ winner: opponentName, status: 'finished' });
-      }
+      // Always finish the duel. If opponent exists, they win. Otherwise, no winner.
+      await duelRef.update({ winner: opponentName || null, status: 'finished' });
   }, [user]);
 
   const setDuelGarrafasOrder = useCallback(async (duelId: string, order: number[]) => {
