@@ -15,7 +15,8 @@ import { ManageStudentsList } from './teacher/ManageStudentsList';
 import { db } from '../../firebase';
 import firebase from 'firebase/compat/app';
 
-const PAGE_SIZE = 25;
+const RANKING_PAGE_SIZE = 25;
+const MANAGEMENT_PAGE_SIZE = 24;
 
 export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGames: () => void }> = ({ onReturnToMenu, onAccessGames }) => {
   const { user, logout } = useContext(AuthContext);
@@ -27,7 +28,6 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
   const [newClassName, setNewClassName] = useState('');
   const teacherClasses = user?.name ? getClassesForTeacher(user.name) : [];
   
-  const [studentsForManagement, setStudentsForManagement] = useState<UserProfile[]>([]);
   const [selectedClassCode, setSelectedClassCode] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [isReportModalOpen, setReportModalOpen] = useState(false);
@@ -42,98 +42,150 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
   const [selectedGameView, setSelectedGameView] = useState<'overview' | 'adedonha' | 'password' | 'combination' | 'garrafas'>('overview');
   const [isEndAllModalOpen, setIsEndAllModalOpen] = useState(false);
 
-  // --- Pagination State ---
+  // --- Pagination State for Ranking ---
   const [rankingStudents, setRankingStudents] = useState<UserProfile[]>([]);
   const [isLoadingRanking, setIsLoadingRanking] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [lastVisibleDoc, setLastVisibleDoc] = useState<firebase.firestore.QueryDocumentSnapshot | null>(null);
-  const [firstVisibleDoc, setFirstVisibleDoc] = useState<firebase.firestore.QueryDocumentSnapshot | null>(null);
-  const [isLastPage, setIsLastPage] = useState(false);
+  const [rankingCurrentPage, setRankingCurrentPage] = useState(1);
+  const [lastVisibleRankingDoc, setLastVisibleRankingDoc] = useState<firebase.firestore.QueryDocumentSnapshot | null>(null);
+  const [firstVisibleRankingDoc, setFirstVisibleRankingDoc] = useState<firebase.firestore.QueryDocumentSnapshot | null>(null);
+  const [isRankingLastPage, setIsRankingLastPage] = useState(false);
+  
+  // --- Pagination State for Management ---
+  const [managementStudents, setManagementStudents] = useState<UserProfile[]>([]);
+  const [isLoadingManagement, setIsLoadingManagement] = useState(false);
+  const [managementCurrentPage, setManagementCurrentPage] = useState(1);
+  const [lastVisibleManagementDoc, setLastVisibleManagementDoc] = useState<firebase.firestore.QueryDocumentSnapshot | null>(null);
+  const [firstVisibleManagementDoc, setFirstVisibleManagementDoc] = useState<firebase.firestore.QueryDocumentSnapshot | null>(null);
+  const [isManagementLastPage, setIsManagementLastPage] = useState(false);
+
   const totalStudentsInClass = useMemo(() => {
     if (!selectedClassCode) return 0;
-    // Get total count from pre-fetched list in context for UI purposes
     return getStudentsInClass(selectedClassCode).length;
   }, [selectedClassCode, allUsers, getStudentsInClass]);
-  // --- End Pagination State ---
-
-
-  useEffect(() => {
-    if (selectedClassCode) {
-      const classStudents = getStudentsInClass(selectedClassCode);
-      const sorted = [...classStudents].sort((a, b) => {
-        if (b.level !== a.level) return b.level - a.level;
-        return b.xp - a.xp;
-      });
-      setStudentsForManagement(sorted);
-    } else {
-      setStudentsForManagement([]);
-    }
-  }, [selectedClassCode, getStudentsInClass, onlineStudents, allUsers]);
   
+  // --- Ranking Data Fetching ---
   const baseRankingQuery = useCallback(() => {
     if (!selectedClassCode) return null;
     return db.collection('users')
       .where('classCode', '==', selectedClassCode)
       .orderBy('xp', 'desc')
-      .orderBy('name', 'asc'); // Secondary sort for stable order
+      .orderBy('name', 'asc');
   }, [selectedClassCode]);
 
-  const fetchFirstPage = useCallback(async () => {
+  const fetchFirstRankingPage = useCallback(async () => {
     const query = baseRankingQuery();
     if (!query) return;
     
     setIsLoadingRanking(true);
     try {
-        const snapshot = await query.limit(PAGE_SIZE).get();
+        const snapshot = await query.limit(RANKING_PAGE_SIZE).get();
         const newStudents = snapshot.docs.map(doc => doc.data() as UserProfile);
         setRankingStudents(newStudents);
-        setFirstVisibleDoc(snapshot.docs[0] || null);
-        setLastVisibleDoc(snapshot.docs[snapshot.docs.length - 1] || null);
-        setIsLastPage(snapshot.docs.length < PAGE_SIZE);
-        setCurrentPage(1);
+        setFirstVisibleRankingDoc(snapshot.docs[0] || null);
+        setLastVisibleRankingDoc(snapshot.docs[snapshot.docs.length - 1] || null);
+        setIsRankingLastPage(snapshot.docs.length < RANKING_PAGE_SIZE);
+        setRankingCurrentPage(1);
     } catch (err) { console.error(err); }
     finally { setIsLoadingRanking(false); }
   }, [baseRankingQuery]);
 
-  useEffect(() => {
-    if (selectedClassCode && classDetailTab === 'ranking') {
-      fetchFirstPage();
-    }
-  }, [selectedClassCode, classDetailTab, fetchFirstPage]);
-  
-  const fetchNextPage = async () => {
+  const fetchNextRankingPage = async () => {
     const query = baseRankingQuery();
-    if (!query || !lastVisibleDoc) return;
+    if (!query || !lastVisibleRankingDoc) return;
     
     setIsLoadingRanking(true);
     try {
-        const snapshot = await query.startAfter(lastVisibleDoc).limit(PAGE_SIZE).get();
+        const snapshot = await query.startAfter(lastVisibleRankingDoc).limit(RANKING_PAGE_SIZE).get();
         const newStudents = snapshot.docs.map(doc => doc.data() as UserProfile);
         setRankingStudents(newStudents);
-        setFirstVisibleDoc(snapshot.docs[0] || null);
-        setLastVisibleDoc(snapshot.docs[snapshot.docs.length - 1] || null);
-        setIsLastPage(snapshot.docs.length < PAGE_SIZE);
-        setCurrentPage(prev => prev + 1);
+        setFirstVisibleRankingDoc(snapshot.docs[0] || null);
+        setLastVisibleRankingDoc(snapshot.docs[snapshot.docs.length - 1] || null);
+        setIsRankingLastPage(snapshot.docs.length < RANKING_PAGE_SIZE);
+        setRankingCurrentPage(prev => prev + 1);
     } catch (err) { console.error(err); }
     finally { setIsLoadingRanking(false); }
   };
   
-  const fetchPrevPage = async () => {
+  const fetchPrevRankingPage = async () => {
     const query = baseRankingQuery();
-    if (!query || !firstVisibleDoc) return;
+    if (!query || !firstVisibleRankingDoc) return;
 
     setIsLoadingRanking(true);
     try {
-        const snapshot = await query.endBefore(firstVisibleDoc).limitToLast(PAGE_SIZE).get();
+        const snapshot = await query.endBefore(firstVisibleRankingDoc).limitToLast(RANKING_PAGE_SIZE).get();
         const newStudents = snapshot.docs.map(doc => doc.data() as UserProfile);
         setRankingStudents(newStudents);
-        setFirstVisibleDoc(snapshot.docs[0] || null);
-        setLastVisibleDoc(snapshot.docs[snapshot.docs.length - 1] || null);
-        setIsLastPage(false); // Can't be last page if we went back
-        setCurrentPage(prev => prev - 1);
+        setFirstVisibleRankingDoc(snapshot.docs[0] || null);
+        setLastVisibleRankingDoc(snapshot.docs[snapshot.docs.length - 1] || null);
+        setIsRankingLastPage(false);
+        setRankingCurrentPage(prev => prev - 1);
     } catch(err) { console.error(err); }
     finally { setIsLoadingRanking(false); }
   };
+  
+  // --- Management Data Fetching ---
+  const baseManagementQuery = useCallback(() => {
+    if (!selectedClassCode) return null;
+    return db.collection('users')
+      .where('classCode', '==', selectedClassCode)
+      .orderBy('name', 'asc');
+  }, [selectedClassCode]);
+
+  const fetchFirstManagementPage = useCallback(async () => {
+    const query = baseManagementQuery();
+    if (!query) return;
+    setIsLoadingManagement(true);
+    try {
+      const snapshot = await query.limit(MANAGEMENT_PAGE_SIZE).get();
+      setManagementStudents(snapshot.docs.map(doc => doc.data() as UserProfile));
+      setFirstVisibleManagementDoc(snapshot.docs[0] || null);
+      setLastVisibleManagementDoc(snapshot.docs[snapshot.docs.length - 1] || null);
+      setIsManagementLastPage(snapshot.docs.length < MANAGEMENT_PAGE_SIZE);
+      setManagementCurrentPage(1);
+    } catch (err) { console.error(err); }
+    finally { setIsLoadingManagement(false); }
+  }, [baseManagementQuery]);
+
+  const fetchNextManagementPage = async () => {
+    const query = baseManagementQuery();
+    if (!query || !lastVisibleManagementDoc) return;
+    setIsLoadingManagement(true);
+    try {
+      const snapshot = await query.startAfter(lastVisibleManagementDoc).limit(MANAGEMENT_PAGE_SIZE).get();
+      setManagementStudents(snapshot.docs.map(doc => doc.data() as UserProfile));
+      setFirstVisibleManagementDoc(snapshot.docs[0] || null);
+      setLastVisibleManagementDoc(snapshot.docs[snapshot.docs.length - 1] || null);
+      setIsManagementLastPage(snapshot.docs.length < MANAGEMENT_PAGE_SIZE);
+      setManagementCurrentPage(p => p + 1);
+    } catch (err) { console.error(err); }
+    finally { setIsLoadingManagement(false); }
+  };
+
+  const fetchPrevManagementPage = async () => {
+    const query = baseManagementQuery();
+    if (!query || !firstVisibleManagementDoc) return;
+    setIsLoadingManagement(true);
+    try {
+      const snapshot = await query.endBefore(firstVisibleManagementDoc).limitToLast(MANAGEMENT_PAGE_SIZE).get();
+      setManagementStudents(snapshot.docs.map(doc => doc.data() as UserProfile));
+      setFirstVisibleManagementDoc(snapshot.docs[0] || null);
+      setLastVisibleManagementDoc(snapshot.docs[snapshot.docs.length - 1] || null);
+      setIsManagementLastPage(false);
+      setManagementCurrentPage(p => p - 1);
+    } catch (err) { console.error(err); }
+    finally { setIsLoadingManagement(false); }
+  };
+
+  // --- Effect to trigger initial data fetch based on tab ---
+  useEffect(() => {
+    if (selectedClassCode) {
+      if (classDetailTab === 'ranking') {
+        fetchFirstRankingPage();
+      } else if (classDetailTab === 'gerenciar') {
+        fetchFirstManagementPage();
+      }
+    }
+  }, [selectedClassCode, classDetailTab, fetchFirstRankingPage, fetchFirstManagementPage]);
 
   useEffect(() => {
     setSelectedGameView('overview');
@@ -172,8 +224,8 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
     if (studentToDelete) {
         await deleteStudent(studentToDelete.name);
         setStudentToDelete(null);
-        if(selectedClassCode) {
-            setStudentsForManagement(getStudentsInClass(selectedClassCode).sort((a, b) => b.xp - a.xp));
+        if (classDetailTab === 'gerenciar') {
+            fetchFirstManagementPage();
         }
     }
   };
@@ -216,10 +268,11 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
   const selectedClass = selectedClassCode ? teacherClasses.find(c => c.classCode === selectedClassCode) : null;
 
   if (selectedClass) {
+    const studentsForClassReport = getStudentsInClass(selectedClass.classCode);
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center p-4 text-slate-200 select-none">
         <ReportModal isOpen={isReportModalOpen} onClose={() => setReportModalOpen(false)} student={selectedStudent} />
-        <ClassReportModal isOpen={isClassReportModalOpen} onClose={() => setClassReportModalOpen(false)} students={studentsForManagement} className={selectedClass.className} />
+        <ClassReportModal isOpen={isClassReportModalOpen} onClose={() => setClassReportModalOpen(false)} students={studentsForClassReport} className={selectedClass.className} />
         <ConfirmationModal
             isOpen={!!studentToDelete}
             onClose={() => setStudentToDelete(null)}
@@ -263,7 +316,7 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
                     <i className="fas fa-trophy mr-2"></i>Ranking da Turma
                 </button>
                 <button onClick={() => setClassDetailTab('gerenciar')} className={`px-4 py-3 font-semibold text-base transition-colors ${classDetailTab === 'gerenciar' ? 'text-sky-400 border-b-2 border-sky-400' : 'text-slate-400 hover:text-white'}`}>
-                    <i className="fas fa-users-cog mr-2"></i>Gerenciar Alunos ({studentsForManagement.length})
+                    <i className="fas fa-users-cog mr-2"></i>Gerenciar Alunos ({totalStudentsInClass})
                 </button>
                 <button onClick={() => setClassDetailTab('atividade')} className={`px-4 py-3 font-semibold text-base transition-colors ${classDetailTab === 'atividade' ? 'text-sky-400 border-b-2 border-sky-400' : 'text-slate-400 hover:text-white'}`}>
                     <i className="fas fa-signal mr-2"></i>Atividade
@@ -275,24 +328,37 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
 
             <main>
               {classDetailTab === 'ranking' && (
-                  rankingStudents.length > 0 
+                  (rankingStudents.length > 0 || isLoadingRanking)
                     ? <ClassDetailTable 
                         students={rankingStudents} 
                         onViewReport={handleViewStudentReport}
-                        currentPage={currentPage}
-                        pageSize={PAGE_SIZE}
+                        currentPage={rankingCurrentPage}
+                        pageSize={RANKING_PAGE_SIZE}
                         totalStudents={totalStudentsInClass}
-                        onNextPage={fetchNextPage}
-                        onPrevPage={fetchPrevPage}
-                        isFirstPage={currentPage === 1}
-                        isLastPage={isLastPage}
+                        onNextPage={fetchNextRankingPage}
+                        onPrevPage={fetchPrevRankingPage}
+                        isFirstPage={rankingCurrentPage === 1}
+                        isLastPage={isRankingLastPage}
                         isLoading={isLoadingRanking}
                       />
                     : <p className="text-slate-400 text-center mt-8 py-16">Nenhum aluno nesta turma ainda. Compartilhe o código da turma!</p>
               )}
               {classDetailTab === 'gerenciar' && (
-                  studentsForManagement.length > 0 
-                    ? <ManageStudentsList students={studentsForManagement} onDeleteStudent={setStudentToDelete} onEditStudent={setStudentToEdit} onlineStudentNames={onlineStudentNames}/>
+                   (managementStudents.length > 0 || isLoadingManagement)
+                    ? <ManageStudentsList 
+                        students={managementStudents} 
+                        onDeleteStudent={setStudentToDelete} 
+                        onEditStudent={setStudentToEdit} 
+                        onlineStudentNames={onlineStudentNames}
+                        currentPage={managementCurrentPage}
+                        pageSize={MANAGEMENT_PAGE_SIZE}
+                        totalStudents={totalStudentsInClass}
+                        onNextPage={fetchNextManagementPage}
+                        onPrevPage={fetchPrevManagementPage}
+                        isFirstPage={managementCurrentPage === 1}
+                        isLastPage={isManagementLastPage}
+                        isLoading={isLoadingManagement}
+                      />
                     : <p className="text-slate-400 text-center mt-8 py-16">Nenhum aluno para gerenciar.</p>
               )}
                {classDetailTab === 'atividade' && (
