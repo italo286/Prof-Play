@@ -23,6 +23,44 @@ const PREDEFINED_COLORS = [
   { name: 'Rosa', pieceClass: 'fill-pink-400', uiClass: 'bg-pink-400' },
 ];
 
+// --- Helper Functions (moved outside component) ---
+const generatePins = (radius: number): Map<string, Pin> => {
+    const pinsMap = new Map<string, Pin>();
+    for (let q = -radius; q <= radius; q++) {
+      for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) {
+        const id = `${q},${r}`;
+        pinsMap.set(id, { id, q, r });
+      }
+    }
+    return pinsMap;
+};
+
+const getHexDistance = (p1: Pin, p2: Pin): number => (Math.abs(p1.q - p2.q) + Math.abs(p1.r - p2.r) + Math.abs(p1.q + p1.r - (p2.q + p2.r))) / 2;
+  
+const getPinsOnLine = (startPin: Pin, endPin: Pin, allPins: Map<string, Pin>): Pin[] => {
+    const distance = getHexDistance(startPin, endPin);
+    if (distance === 0) return [startPin];
+    const results: Pin[] = [];
+    for (let i = 0; i <= distance; i++) {
+        const t = i / distance;
+        const q = startPin.q * (1 - t) + endPin.q * t;
+        const r = startPin.r * (1 - t) + endPin.r * t;
+        const s = (-startPin.q - startPin.r) * (1-t) + (-endPin.q - endPin.r) * t;
+        let rq = Math.round(q);
+        let rr = Math.round(r);
+        let rs = Math.round(s);
+        const q_diff = Math.abs(rq - q);
+        const r_diff = Math.abs(rr - r);
+        const s_diff = Math.abs(rs - s);
+        if (q_diff > r_diff && q_diff > s_diff) rq = -rr - rs;
+        else if (r_diff > s_diff) rr = -rq - rs;
+        const pin = allPins.get(`${rq},${rr}`);
+        if (pin) results.push(pin);
+    }
+    return results;
+};
+
+
 const ColorSelector: React.FC<{
     onColorSelect: (color: typeof PREDEFINED_COLORS[0]) => void;
     disabledColors: string[];
@@ -66,7 +104,6 @@ export const XadrezTriangulosGame: React.FC<XadrezTriangulosGameProps> = ({ onRe
   const [colorSelectionTurn, setColorSelectionTurn] = useState<'player1' | 'player2'>('player1');
 
   // Local state for offline play
-  const [localPins, setLocalPins] = useState<Map<string, Pin>>(new Map());
   const [localLines, setLocalLines] = useState<Line[]>([]);
   const [localClaimedTriangles, setLocalClaimedTriangles] = useState<Map<string, ClaimedTriangle>>(new Map());
   const [localCurrentPlayer, setLocalCurrentPlayer] = useState<PlayerColor>('player1');
@@ -117,43 +154,6 @@ export const XadrezTriangulosGame: React.FC<XadrezTriangulosGameProps> = ({ onRe
       player2: PIECES_TO_WIN - scores.player2,
   }), [scores]);
 
-  // --- Helper Functions ---
-  const generatePins = (radius: number): Map<string, Pin> => {
-    const pinsMap = new Map<string, Pin>();
-    for (let q = -radius; q <= radius; q++) {
-      for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) {
-        const id = `${q},${r}`;
-        pinsMap.set(id, { id, q, r });
-      }
-    }
-    return pinsMap;
-  };
-
-  const getHexDistance = (p1: Pin, p2: Pin): number => (Math.abs(p1.q - p2.q) + Math.abs(p1.r - p2.r) + Math.abs(p1.q + p1.r - (p2.q + p2.r))) / 2;
-  
-  const getPinsOnLine = (startPin: Pin, endPin: Pin, allPins: Map<string, Pin>): Pin[] => {
-    const distance = getHexDistance(startPin, endPin);
-    if (distance === 0) return [startPin];
-    const results: Pin[] = [];
-    for (let i = 0; i <= distance; i++) {
-        const t = i / distance;
-        const q = startPin.q * (1 - t) + endPin.q * t;
-        const r = startPin.r * (1 - t) + endPin.r * t;
-        const s = (-startPin.q - startPin.r) * (1-t) + (-endPin.q - endPin.r) * t;
-        let rq = Math.round(q);
-        let rr = Math.round(r);
-        let rs = Math.round(s);
-        const q_diff = Math.abs(rq - q);
-        const r_diff = Math.abs(rr - r);
-        const s_diff = Math.abs(rs - s);
-        if (q_diff > r_diff && q_diff > s_diff) rq = -rr - rs;
-        else if (r_diff > s_diff) rr = -rq - rs;
-        const pin = allPins.get(`${rq},${rr}`);
-        if (pin) results.push(pin);
-    }
-    return results;
-  };
-
   const calculateValidMoves = useCallback((startPinId: string) => {
     const fromPin = pins.get(startPinId);
     if (!fromPin) return new Set<string>();
@@ -179,7 +179,6 @@ export const XadrezTriangulosGame: React.FC<XadrezTriangulosGameProps> = ({ onRe
 
   // --- Game Initialization and State Sync ---
   const initializeLocalGame = useCallback(() => {
-    setLocalPins(pins);
     setLocalLines([]);
     setLocalClaimedTriangles(new Map());
     setLocalCurrentPlayer('player1');
@@ -188,7 +187,7 @@ export const XadrezTriangulosGame: React.FC<XadrezTriangulosGameProps> = ({ onRe
     setMessage('Jogador 1, selecione um pino para começar.');
     setMessageType('info');
     setGameState('playing');
-  }, [pins]);
+  }, []);
 
   useEffect(() => {
     if (winner) {
@@ -360,7 +359,7 @@ export const XadrezTriangulosGame: React.FC<XadrezTriangulosGameProps> = ({ onRe
                 {message && <MessageDisplay message={message} type={messageType} />}
 
                 <div className="flex flex-col gap-2 mt-auto">
-                      {!isOnline && <button onClick={() => setGameState('setup')} className="w-full px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700">Reiniciar Jogo</button>}
+                      {!isOnline && <button onClick={() => { setGameState('setup'); setPlayerColors({ player1: null, player2: null }); setColorSelectionTurn('player1'); }} className="w-full px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700">Reiniciar Jogo</button>}
                       {isOnline && <button onClick={() => setShowForfeitConfirm(true)} className="w-full px-6 py-2 bg-red-800 text-red-300 font-semibold rounded-lg hover:bg-red-700 hover:text-white">Desistir do Duelo</button>}
                     <button onClick={onReturnToMenu} className="w-full px-6 py-3 bg-sky-600 text-white font-semibold rounded-lg shadow-md hover:bg-sky-700"> {isOnline ? 'Voltar ao Lobby' : 'Menu Principal'} </button>
                 </div>
