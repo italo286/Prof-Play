@@ -1,7 +1,7 @@
 import React, { useState, useContext, useEffect, useMemo, useCallback } from 'react';
-import { AuthContext } from '../../contexts/AuthContext';
-import { GameDataContext } from '../../contexts/GameDataContext';
-import type { UserProfile, ClassData } from '../../types';
+import { AuthContext } from '../contexts/AuthContext';
+import { GameDataContext } from '../contexts/GameDataContext';
+import type { UserProfile, ClassData } from '../types';
 import { ReportModal } from './ReportModal';
 import { ClassReportModal } from './ClassReportModal';
 import { ClassDetailTable } from './teacher/ClassDetailTable';
@@ -12,7 +12,7 @@ import { GarrafasManager } from './teacher/GarrafasManager';
 import { ConfirmationModal } from './ConfirmationModal';
 import { EditStudentModal } from './teacher/EditStudentModal';
 import { ManageStudentsList } from './teacher/ManageStudentsList';
-import { db } from '../../firebase';
+import { db } from '../firebase';
 import firebase from 'firebase/compat/app';
 
 const RANKING_PAGE_SIZE = 25;
