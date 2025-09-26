@@ -27,6 +27,7 @@ interface DuelContextType {
   setDuelGarrafasOrder: (duelId: string, order: number[]) => Promise<void>;
   submitDuelGarrafasGuess: (duelId: string, guess: number[]) => Promise<void>;
   submitXadrezTurn: (duelId: string, fromPinId: string, toPinId: string) => Promise<void>;
+  selectDuelXadrezColor: (duelId: string, color: { name: string; pieceClass: string; uiClass: string; }) => Promise<void>;
 }
 
 export const DuelContext = createContext<DuelContextType>({} as DuelContextType);
@@ -208,7 +209,7 @@ export const DuelProvider: React.FC<{ children: React.ReactNode }> = ({ children
         players,
         gameMode: invitation.gameMode,
         challenges,
-        status: isSetupGame ? 'playing' : 'starting', // xadrez starts immediately
+        status: isSetupGame ? 'setup' : 'starting',
         winner: null,
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     };
@@ -227,10 +228,12 @@ export const DuelProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }
     if (invitation.gameMode === 'xadrez-de-triangulos') {
+        newDuel.status = 'setup';
         newDuel.xadrezGameState = {
             lines: [],
             claimedTriangles: [],
             currentPlayer: invitation.from,
+            playerColors: {},
         }
     }
     await db.doc(`duels/${invitation.duelId}`).set(newDuel);
@@ -425,6 +428,32 @@ export const DuelProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
   }, [user, earnBadge]);
 
+    const selectDuelXadrezColor = useCallback(async (duelId: string, color: { name: string; pieceClass: string; uiClass: string; }) => {
+        if (!user) return;
+        const duelRef = db.doc(`duels/${duelId}`);
+
+        await db.runTransaction(async (transaction) => {
+            const doc = await transaction.get(duelRef);
+            if (!doc.exists) throw new Error("Duel not found");
+            const duel = doc.data() as DuelState;
+            if (!duel.xadrezGameState) throw new Error("Game state missing");
+
+            const currentColors = duel.xadrezGameState.playerColors || {};
+            const newPlayerColors = { ...currentColors, [user.name]: color };
+            
+            const updateData: any = {
+                'xadrezGameState.playerColors': newPlayerColors
+            };
+
+            // If both players have now chosen a color, start the game.
+            if (Object.keys(newPlayerColors).length === 2) {
+                updateData.status = 'playing';
+            }
+
+            transaction.update(duelRef, updateData);
+        });
+    }, [user]);
+
   const submitXadrezTurn = useCallback(async (duelId: string, fromPinId: string, toPinId: string) => {
     if (!user) return;
     const duelRef = db.doc(`duels/${duelId}`);
@@ -501,6 +530,7 @@ export const DuelProvider: React.FC<{ children: React.ReactNode }> = ({ children
             lines: allLinesAfterMove,
             claimedTriangles: updatedTriangles,
             currentPlayer: opponentName,
+            playerColors: duel.xadrezGameState.playerColors,
         };
 
         transaction.update(duelRef, {
@@ -517,7 +547,8 @@ export const DuelProvider: React.FC<{ children: React.ReactNode }> = ({ children
     updateDuelProgress, finishDuel, clearActiveDuel, handleDuelError,
     setDuelPassword, submitDuelGuess, forfeitDuel,
     setDuelGarrafasOrder, submitDuelGarrafasGuess,
-    submitXadrezTurn
+    submitXadrezTurn,
+    selectDuelXadrezColor,
   };
 
   return <DuelContext.Provider value={value}>{children}</DuelContext.Provider>;

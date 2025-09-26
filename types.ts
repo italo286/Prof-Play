@@ -147,6 +147,7 @@ export interface DuelXadrezState {
     lines: Array<Omit<Line, 'player'> & { player: string }>;
     claimedTriangles: Array<Omit<ClaimedTriangle, 'owner'> & { owner: string }>;
     currentPlayer: string;
+    playerColors?: { [playerName: string]: { name: string; pieceClass: string; uiClass: string; } };
 }
 
 export interface DuelState {

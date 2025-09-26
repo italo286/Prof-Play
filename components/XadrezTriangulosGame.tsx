@@ -92,12 +92,12 @@ const ColorSelector: React.FC<{
 
 export const XadrezTriangulosGame: React.FC<XadrezTriangulosGameProps> = ({ onReturnToMenu, duel = null }) => {
   const { user } = useContext(AuthContext);
-  const { submitXadrezTurn, forfeitDuel } = useContext(DuelContext);
+  const { submitXadrezTurn, forfeitDuel, selectDuelXadrezColor } = useContext(DuelContext);
 
   const isOnline = !!duel;
   
   // Game state management
-  const [gameState, setGameState] = useState<'setup' | 'playing' | 'finished'>(isOnline ? 'playing' : 'setup');
+  const [gameState, setGameState] = useState<'setup' | 'playing' | 'finished'>(isOnline ? (duel.status === 'setup' ? 'setup' : 'playing') : 'setup');
 
   // Color state for local game
   const [playerColors, setPlayerColors] = useState<{ player1: typeof PREDEFINED_COLORS[0] | null, player2: typeof PREDEFINED_COLORS[0] | null }>({ player1: null, player2: null });
@@ -118,6 +118,20 @@ export const XadrezTriangulosGame: React.FC<XadrezTriangulosGameProps> = ({ onRe
   // --- Game State Derivation ---
   const pins = useMemo(() => generatePins(BOARD_RADIUS), []);
   
+  const player1ColorInfo = useMemo(() => {
+    if (isOnline && duel?.xadrezGameState?.playerColors) {
+        return duel.xadrezGameState.playerColors[duel.players[0].name];
+    }
+    return playerColors.player1;
+  }, [isOnline, duel, playerColors.player1]);
+
+  const player2ColorInfo = useMemo(() => {
+    if (isOnline && duel?.xadrezGameState?.playerColors) {
+        return duel.xadrezGameState.playerColors[duel.players[1].name];
+    }
+    return playerColors.player2;
+  }, [isOnline, duel, playerColors.player2]);
+
   const player1Name = isOnline ? duel.players[0].name : (playerColors.player1?.name || 'Jogador 1');
   const player2Name = isOnline ? duel.players[1].name : (playerColors.player2?.name || 'Jogador 2');
 
@@ -195,8 +209,11 @@ export const XadrezTriangulosGame: React.FC<XadrezTriangulosGameProps> = ({ onRe
       const winnerName = winner === 'player1' ? player1Name : player2Name;
       setMessage(`${winnerName} venceu!`);
       setMessageType('final');
+    } else if (isOnline) {
+      // Update local game state based on duel status from props
+      setGameState(duel.status === 'setup' ? 'setup' : 'playing');
     }
-  }, [winner, player1Name, player2Name]);
+  }, [winner, player1Name, player2Name, isOnline, duel]);
   
   // --- Player Actions ---
   const handleColorSelect = (color: typeof PREDEFINED_COLORS[0]) => {
@@ -208,6 +225,12 @@ export const XadrezTriangulosGame: React.FC<XadrezTriangulosGameProps> = ({ onRe
           initializeLocalGame();
       }
   };
+
+    const handleDuelColorSelect = (color: typeof PREDEFINED_COLORS[0]) => {
+        if (isOnline && duel) {
+            selectDuelXadrezColor(duel.id, color);
+        }
+    };
 
   const handlePinClick = useCallback((pinId: string) => {
     if (winner) return;
@@ -314,19 +337,67 @@ export const XadrezTriangulosGame: React.FC<XadrezTriangulosGameProps> = ({ onRe
 
   const resolvedPlayerColors = useMemo(() => {
     if (isOnline) {
-        return { player1: PREDEFINED_COLORS[0].pieceClass, player2: PREDEFINED_COLORS[1].pieceClass };
+        if (!player1ColorInfo || !player2ColorInfo) {
+            // This case is handled by the loading guard, but as a fallback:
+            return { player1: 'fill-gray-500', player2: 'fill-gray-500' };
+        }
+        return {
+            player1: player1ColorInfo.pieceClass,
+            player2: player2ColorInfo.pieceClass
+        };
     }
     return {
         player1: playerColors.player1?.pieceClass || 'fill-gray-500',
         player2: playerColors.player2?.pieceClass || 'fill-gray-500'
     };
-  }, [isOnline, playerColors]);
+}, [isOnline, player1ColorInfo, player2ColorInfo, playerColors]);
 
   const renderGameContent = () => {
+    if (isOnline && duel.status === 'setup') {
+        const myColor = duel.xadrezGameState?.playerColors?.[user!.name];
+        if (myColor) {
+            return (
+                <div className="flex flex-col items-center justify-center p-8 text-center animate-fade-in">
+                    <i className="fas fa-hourglass-half text-4xl text-sky-400 mb-4 animate-pulse"></i>
+                    <h2 className="text-2xl font-bold text-sky-300">Cor Selecionada!</h2>
+                    <p className="text-slate-300 mt-2">Aguardando seu oponente escolher a cor...</p>
+                </div>
+            );
+        }
+        
+        const opponent = duel.players.find(p => p.name !== user!.name);
+        const opponentColor = opponent ? duel.xadrezGameState?.playerColors?.[opponent.name] : null;
+        const disabledColors = opponentColor ? [opponentColor.name] : [];
+        const playerNumber = duel.players[0].name === user!.name ? 1 : 2;
+
+        return <ColorSelector onColorSelect={handleDuelColorSelect} disabledColors={disabledColors} playerNumber={playerNumber} />
+    }
+
     if (gameState === 'setup' && !isOnline) {
         const disabledColors = colorSelectionTurn === 'player2' && playerColors.player1 ? [playerColors.player1.name] : [];
         return <ColorSelector onColorSelect={handleColorSelect} disabledColors={disabledColors} playerNumber={colorSelectionTurn === 'player1' ? 1 : 2} />
     }
+    
+    // Guard against rendering the game board before online colors are synced
+    if (isOnline && (gameState === 'playing' || duel.status === 'playing') && (!player1ColorInfo || !player2ColorInfo)) {
+        return (
+            <div className="flex flex-col items-center justify-center p-8 text-center animate-fade-in">
+                <i className="fas fa-spinner fa-spin text-4xl text-sky-400 mb-4"></i>
+                <h2 className="text-2xl font-bold text-sky-300">Iniciando partida...</h2>
+            </div>
+        );
+    }
+
+    const player1Info = {
+        name: isOnline ? (duel.players[0].name === user?.name ? 'Você' : duel.players[0].name) : player1Name,
+        colorClass: isOnline ? player1ColorInfo!.uiClass : playerColors.player1?.uiClass,
+        piecesLeft: piecesLeft.player1
+    };
+    const player2Info = {
+        name: isOnline ? (duel.players[1].name === user?.name ? 'Você' : duel.players[1].name) : player2Name,
+        colorClass: isOnline ? player2ColorInfo!.uiClass : playerColors.player2?.uiClass,
+        piecesLeft: piecesLeft.player2
+    };
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -335,14 +406,14 @@ export const XadrezTriangulosGame: React.FC<XadrezTriangulosGameProps> = ({ onRe
                     <h2 className="font-bold text-xl text-center mb-2">Peças Restantes</h2>
                     <div className="flex justify-around items-center">
                         <div className="text-center flex flex-col items-center gap-2">
-                             <div className={`w-6 h-6 rounded-full ${isOnline ? PREDEFINED_COLORS[0].uiClass : playerColors.player1?.uiClass}`}></div>
-                            <p className={`font-bold text-lg text-sky-400 truncate max-w-[120px]`}>{isOnline ? 'Você' : player1Name}</p>
-                            <p className="text-3xl font-bold">{piecesLeft.player1}</p>
+                             <div className={`w-6 h-6 rounded-full ${player1Info.colorClass}`}></div>
+                            <p className={`font-bold text-lg text-sky-400 truncate max-w-[120px]`}>{player1Info.name}</p>
+                            <p className="text-3xl font-bold">{player1Info.piecesLeft}</p>
                         </div>
                         <div className="text-center flex flex-col items-center gap-2">
-                             <div className={`w-6 h-6 rounded-full ${isOnline ? PREDEFINED_COLORS[1].uiClass : playerColors.player2?.uiClass}`}></div>
-                            <p className={`font-bold text-lg text-cyan-400 truncate max-w-[120px]`}>{isOnline ? (opponent?.name || 'Oponente') : player2Name}</p>
-                            <p className="text-3xl font-bold">{piecesLeft.player2}</p>
+                             <div className={`w-6 h-6 rounded-full ${player2Info.colorClass}`}></div>
+                            <p className={`font-bold text-lg text-cyan-400 truncate max-w-[120px]`}>{player2Info.name}</p>
+                            <p className="text-3xl font-bold">{player2Info.piecesLeft}</p>
                         </div>
                     </div>
                 </div>
