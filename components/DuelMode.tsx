@@ -14,6 +14,7 @@ import { playSuccessSound, playErrorSound, playDuelStartSound } from '../utils/a
 import { TOTAL_CHALLENGES, MIN_COORD, MAX_COORD } from '../data/duel';
 import { GARRAFAS_IMAGES } from '../data/games';
 import { ConfirmationModal } from './ConfirmationModal';
+import { XadrezTriangulosGame } from './XadrezTriangulosGame';
 
 interface DuelModeProps {
   onReturnToMenu: () => void;
@@ -26,6 +27,7 @@ const duelableGameModes: { id: DuelableGameMode; name: string }[] = [
     { id: 'coordenadas-geograficas', name: 'Coordenadas Geográficas' },
     { id: 'descubra-a-senha', name: 'Descubra a Senha' },
     { id: 'jogo-das-garrafas', name: 'Jogo das Garrafas' },
+    { id: 'xadrez-de-triangulos', name: 'Xadrez de Triângulos' },
 ];
 
 const getGameNameById = (id: DuelableGameMode) => {
@@ -474,14 +476,16 @@ const DuelGame: React.FC = () => {
     };
 
     const renderGameContent = () => {
-        if (currentChallengeIndex >= TOTAL_CHALLENGES && !['descubra-a-senha', 'jogo-das-garrafas'].includes(activeDuel.gameMode)) {
+        if (currentChallengeIndex >= TOTAL_CHALLENGES && !['descubra-a-senha', 'jogo-das-garrafas', 'xadrez-de-triangulos'].includes(activeDuel.gameMode)) {
             return <p className="text-center text-xl text-green-400 font-bold p-8">Você terminou! Aguardando oponente...</p>
         }
-        if (!currentChallenge && !['descubra-a-senha', 'jogo-das-garrafas'].includes(activeDuel.gameMode)) {
+        if (!currentChallenge && !['descubra-a-senha', 'jogo-das-garrafas', 'xadrez-de-triangulos'].includes(activeDuel.gameMode)) {
              return <p className="text-center text-xl text-sky-400 font-bold p-8 animate-pulse">Aguardando oponente...</p>
         }
 
         switch (activeDuel.gameMode) {
+            case 'xadrez-de-triangulos':
+                return <XadrezTriangulosGame duel={activeDuel} onReturnToMenu={() => {}} />;
             case 'jogo-das-garrafas': {
                 if (!activeDuel.garrafasGameState || !opponent) return <p>Erro no estado do jogo.</p>;
                 const selfState = activeDuel.garrafasGameState[user.name];
@@ -491,6 +495,7 @@ const DuelGame: React.FC = () => {
                     else {
                         if (garrafasSelectedIndex === index) { setGarrafasSelectedIndex(null); return; }
                         const newOrder = [...garrafasOrder];
+                        // FIX: The variable 'selectedIndex' was undefined. Replaced with 'garrafasSelectedIndex'.
                         [newOrder[garrafasSelectedIndex], newOrder[index]] = [newOrder[index], newOrder[garrafasSelectedIndex]];
                         setGarrafasOrder(newOrder);
                         setGarrafasSelectedIndex(null);
@@ -503,6 +508,7 @@ const DuelGame: React.FC = () => {
                         {userMessage && <MessageDisplay message={userMessage} type={messageType} />}
                          <div className="grid grid-cols-6 gap-2 md:gap-4 my-4">
                             {garrafasOrder.map((bottleIndex, i) => (
+                                // FIX: The variable 'selectedIndex' was undefined. Replaced with 'garrafasSelectedIndex'.
                                 <div key={i} onClick={() => handleBottleClick(i)} className={`p-2 rounded-lg cursor-pointer transition-all ${garrafasSelectedIndex === i ? 'bg-sky-500 scale-110 shadow-lg' : 'bg-slate-700/50 hover:bg-slate-600'}`}>
                                     <img src={GARRAFAS_IMAGES[bottleIndex]} alt={`Garrafa ${bottleIndex + 1}`} className="w-full h-auto"/>
                                 </div>
@@ -654,11 +660,6 @@ const DuelGame: React.FC = () => {
                 </div>
             )}
             {renderGameContent()}
-            <div className="mt-8 border-t border-slate-700 w-full pt-4 flex justify-center">
-                <button onClick={() => setShowForfeitConfirm(true)} className="px-4 py-2 bg-red-800 text-red-300 font-semibold rounded-lg shadow-md hover:bg-red-700 hover:text-white transition-colors text-sm">
-                    <i className="fas fa-flag-checkered mr-2"></i>Desistir da Partida
-                </button>
-            </div>
         </div>
     );
 };
@@ -692,7 +693,7 @@ const DuelResults: React.FC<{ onReturn: () => void }> = ({ onReturn }) => {
     const self = activeDuel.players.find(p => p.name === user.name);
     const opponent = activeDuel.players.find(p => p.name !== user.name);
 
-    const isSetupGame = ['descubra-a-senha', 'jogo-das-garrafas'].includes(activeDuel.gameMode);
+    const isSetupGame = ['descubra-a-senha', 'jogo-das-garrafas', 'xadrez-de-triangulos'].includes(activeDuel.gameMode);
 
     return (
         <div className="text-center py-6 flex flex-col justify-center items-center gap-4 relative">

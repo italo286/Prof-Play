@@ -102,7 +102,7 @@ export interface PasswordChallenge {
 
 // --- DUEL TYPES ---
 
-export type DuelableGameMode = 'encontrar-pontos' | 'reconhecer-pontos' | 'simetria-pontos' | 'coordenadas-geograficas' | 'descubra-a-senha' | 'jogo-das-garrafas';
+export type DuelableGameMode = 'encontrar-pontos' | 'reconhecer-pontos' | 'simetria-pontos' | 'coordenadas-geograficas' | 'descubra-a-senha' | 'jogo-das-garrafas' | 'xadrez-de-triangulos';
 
 export type DuelChallenge = Point | { point: Point; type: SymmetryType } | GeoPoint;
 
@@ -143,6 +143,12 @@ export interface DuelGarrafasState {
     [playerName: string]: DuelGarrafasPlayerState;
 }
 
+export interface DuelXadrezState {
+    lines: Array<Omit<Line, 'player'> & { player: string }>;
+    claimedTriangles: Array<Omit<ClaimedTriangle, 'owner'> & { owner: string }>;
+    currentPlayer: string;
+}
+
 export interface DuelState {
   id: string;
   players: [DuelPlayer, DuelPlayer];
@@ -150,6 +156,7 @@ export interface DuelState {
   challenges: DuelChallenge[];
   passwordGameState?: DuelPasswordState;
   garrafasGameState?: DuelGarrafasState;
+  xadrezGameState?: DuelXadrezState;
   status: 'starting' | 'setup' | 'playing' | 'finished';
   winner: string | null;
   createdAt?: any; // Firebase Timestamp

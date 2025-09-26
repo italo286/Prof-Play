@@ -72,6 +72,7 @@ export const generateDuelChallenges = (gameMode: DuelableGameMode): DuelChalleng
         case 'coordenadas-geograficas':
             return generateGeoChallenges(TOTAL_CHALLENGES);
         case 'jogo-das-garrafas':
+        case 'xadrez-de-triangulos':
             return []; // Player-generated challenges
         default:
             return generatePoints(TOTAL_CHALLENGES);
