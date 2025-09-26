@@ -144,12 +144,14 @@ export const DuelProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (currentActiveDuel) {
       setActiveDuel(currentActiveDuel);
     } else {
-      // If no active duel, check for the MOST RECENT finished one to show results
+      // If no active duel, check for the MOST RECENT finished one to show results,
+      // as long as the user hasn't dismissed it yet.
       const finishedDuels = duelStates.filter(
         (d) =>
           d && Array.isArray(d.players) &&
           d.players.some((p) => p?.name === user.name) &&
-          d.status === 'finished'
+          d.status === 'finished' &&
+          !d.dismissedBy?.includes(user.name)
       );
       
       if (finishedDuels.length > 0) {
@@ -303,11 +305,14 @@ export const DuelProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user, earnBadge]);
   
   const clearActiveDuel = useCallback(async () => {
-    if (activeDuel && activeDuel.status === 'finished') {
-        // Optional: Can delete the duel from DB after a while
+    if (activeDuel && activeDuel.status === 'finished' && user) {
+        const duelRef = db.doc(`duels/${activeDuel.id}`);
+        await duelRef.update({
+            dismissedBy: firebase.firestore.FieldValue.arrayUnion(user.name)
+        });
     }
     setActiveDuel(null);
-  }, [activeDuel]);
+  }, [activeDuel, user]);
 
   const handleDuelError = useCallback(async (duelId: string, progressToSet: number) => {
      if (!user) return;

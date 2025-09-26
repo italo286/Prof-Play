@@ -161,6 +161,7 @@ export interface DuelState {
   status: 'starting' | 'setup' | 'playing' | 'finished';
   winner: string | null;
   createdAt?: any; // Firebase Timestamp
+  dismissedBy?: string[];
 }
 
 // --- ADEDONHA TYPES ---
