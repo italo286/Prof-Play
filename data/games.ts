@@ -1,5 +1,5 @@
 export interface GameInfo {
-    id: 'coordenadas-geograficas' | 'encontrar-pontos' | 'reconhecer-pontos' | 'simetria-pontos' | 'simetria-segmentos' | 'descubra-a-senha' | 'combinacao-total' | 'adedonha-simples' | 'adedonha-tapple' | 'duelo' | 'jogo-das-garrafas';
+    id: 'coordenadas-geograficas' | 'encontrar-pontos' | 'reconhecer-pontos' | 'simetria-pontos' | 'simetria-segmentos' | 'descubra-a-senha' | 'combinacao-total' | 'adedonha-simples' | 'adedonha-tapple' | 'duelo' | 'jogo-das-garrafas' | 'xadrez-de-triangulos';
     name: string;
     description: string;
     icon: string;
@@ -49,6 +49,7 @@ export const GAME_CATEGORIES: GameCategory[] = [
             { id: 'descubra-a-senha', name: 'Descubra a Senha', description: 'Use a lógica para deduzir a senha secreta.', icon: 'fa-key', badgePrefix: 'password_unlock' },
             { id: 'combinacao-total', name: 'Combinação Total', description: 'Encontre todas as combinações possíveis seguindo as regras.', icon: 'fa-calculator', badgePrefix: 'combinacao_total' },
             { id: 'jogo-das-garrafas', name: 'Jogo das Garrafas', description: 'Ordene as garrafas na sequência correta.', icon: 'fa-wine-bottle', badgePrefix: 'garrafas' },
+            { id: 'xadrez-de-triangulos', name: 'Xadrez de Triângulos', description: 'Use elásticos para formar triângulos e colocar suas peças.', icon: 'fa-share-alt', badgePrefix: 'triangle_chess' },
         ]
     },
     {

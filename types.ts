@@ -227,3 +227,24 @@ export interface GarrafasChallenge {
   status: 'locked' | 'unlocked';
   unlockedTimestamp?: any;
 }
+
+// --- XADREZ DE TRIÂNGULOS TYPES ---
+export type PlayerColor = 'player1' | 'player2';
+
+export interface Pin {
+  id: string; // "q,r"
+  q: number;
+  r: number;
+}
+
+export interface Line {
+  from: string; // Pin ID
+  to: string;   // Pin ID
+  player: PlayerColor;
+}
+
+export interface ClaimedTriangle {
+  id: string; // "v1_id;v2_id;v3_id" sorted
+  vertices: [string, string, string];
+  owner: PlayerColor;
+}

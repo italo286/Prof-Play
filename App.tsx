@@ -12,6 +12,7 @@ import { AdedonhaTappleGame } from './components/AdedonhaTappleGame';
 import { DuelMode } from './components/DuelMode';
 import { CombinacaoTotalGame } from './components/CombinacaoTotalGame';
 import { GarrafasGame } from './components/GarrafasGame';
+import { XadrezTriangulosGame } from './components/XadrezTriangulosGame';
 import { ProfileScreen } from './components/ProfileScreen';
 import { AppProviders } from './contexts';
 import { AuthContext } from './contexts/AuthContext';
@@ -22,7 +23,7 @@ import { TeacherDashboard } from './components/TeacherDashboard';
 import type { UserProfile } from './types';
 import { GAME_CATEGORIES, GameCategory } from './data/games';
 
-type GameMode = 'encontrar-pontos' | 'reconhecer-pontos' | 'simetria-pontos' | 'simetria-segmentos' | 'coordenadas-geograficas' | 'descubra-a-senha' | 'duelo' | 'adedonha-simples' | 'adedonha-tapple' | 'combinacao-total' | 'jogo-das-garrafas';
+type GameMode = 'encontrar-pontos' | 'reconhecer-pontos' | 'simetria-pontos' | 'simetria-segmentos' | 'coordenadas-geograficas' | 'descubra-a-senha' | 'duelo' | 'adedonha-simples' | 'adedonha-tapple' | 'combinacao-total' | 'jogo-das-garrafas' | 'xadrez-de-triangulos';
 type View = 'menu' | 'profile' | 'game' | 'teacher_dashboard' | 'category';
 
 export const isModeUnlocked = (modeId: string, user: UserProfile | null) => {
@@ -30,7 +31,7 @@ export const isModeUnlocked = (modeId: string, user: UserProfile | null) => {
     if (user.role === 'teacher') return true;
 
     // These modes don't depend on a sequence
-    if (['duelo', 'adedonha-simples', 'adedonha-tapple', 'combinacao-total', 'descubra-a-senha', 'jogo-das-garrafas'].includes(modeId)) return true;
+    if (['duelo', 'adedonha-simples', 'adedonha-tapple', 'combinacao-total', 'descubra-a-senha', 'jogo-das-garrafas', 'xadrez-de-triangulos'].includes(modeId)) return true;
 
     const badges = user.badges || [];
     switch(modeId) {
@@ -164,6 +165,8 @@ const AppContent: React.FC = () => {
             return <CombinacaoTotalGame onReturnToMenu={backToCategoryOrMenu} />;
           case 'jogo-das-garrafas':
             return <GarrafasGame onReturnToMenu={backToCategoryOrMenu} />;
+          case 'xadrez-de-triangulos':
+            return <XadrezTriangulosGame onReturnToMenu={backToCategoryOrMenu} />;
           case 'duelo':
             return <DuelMode onReturnToMenu={handleReturnToMenu} />; // Duel always returns to main menu
           default:
