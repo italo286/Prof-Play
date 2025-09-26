@@ -8,6 +8,7 @@ interface PinBoardProps {
   selectedPin: string | null;
   validNextPins: Set<string>;
   onPinClick: (pinId: string) => void;
+  playerColors: { player1: string, player2: string };
 }
 
 const PIN_RADIUS = 6;
@@ -15,7 +16,7 @@ const CELL_SPACING = 35;
 const SVG_PADDING = 20;
 const PIECE_SIZE_RATIO = 0.35; 
 
-export const PinBoard: React.FC<PinBoardProps> = ({ pins, lines, claimedTriangles, selectedPin, validNextPins, onPinClick }) => {
+export const PinBoard: React.FC<PinBoardProps> = ({ pins, lines, claimedTriangles, selectedPin, validNextPins, onPinClick, playerColors }) => {
   const pinArray = useMemo(() => Array.from(pins.values()), [pins]);
 
   const hexToPixel = (pin: Pin) => {
@@ -75,7 +76,7 @@ export const PinBoard: React.FC<PinBoardProps> = ({ pins, lines, claimedTriangle
             piecePoints = `${centerX + offsetX},${botY + offsetY} ${leftX + offsetX},${topY + offsetY} ${rightX + offsetX},${topY + offsetY}`;
           }
 
-          const playerFill = triangle.owner === 'player1' ? 'fill-sky-400' : 'fill-cyan-400';
+          const playerFill = triangle.owner === 'player1' ? playerColors.player1 : playerColors.player2;
           return (
             <polygon
               key={triangle.id}
