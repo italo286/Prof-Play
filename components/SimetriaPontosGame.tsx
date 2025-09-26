@@ -9,7 +9,6 @@ import { ProfileContext, getLevelColor } from '../contexts/ProfileContext';
 import { playSuccessSound, playErrorSound } from '../utils/audio';
 import { PlayerStatsModal } from './PlayerStatsModal';
 import { BnccInfoButton } from './BnccInfoButton';
-import { getMedalForScore } from '../data/achievements';
 import { HintModal } from './HintModal';
 
 interface SimetriaPontosGameProps {
@@ -70,7 +69,7 @@ export const SimetriaPontosGame: React.FC<SimetriaPontosGameProps> = ({ onReturn
   const [isFirstAttempt, setIsFirstAttempt] = useState<boolean>(true);
   const [comboCount, setComboCount] = useState(0);
   
-  const [sessionXp, setSessionXp] = useState(0);
+  const [finalXpGained, setFinalXpGained] = useState(0);
   const [xpAnimation, setXpAnimation] = useState<{ amount: number; key: number, combo: number } | null>(null);
   const [isStatsModalOpen, setStatsModalOpen] = useState(false);
   
@@ -83,17 +82,14 @@ export const SimetriaPontosGame: React.FC<SimetriaPontosGameProps> = ({ onReturn
     setGameOver(true);
     setUserMessage('');
     setChallenge(null);
-    const medal = getMedalForScore(GAME_ID, sessionStats.firstTry, TOTAL_CHALLENGES);
-    const bonusXp = 50;
     
-    await finalizeStandardGame(GAME_ID, {
+    const totalXP = await finalizeStandardGame(GAME_ID, {
       ...sessionStats,
-      xp: sessionXp + bonusXp,
-      medalId: medal?.id,
+      totalChallenges: TOTAL_CHALLENGES,
     });
     
-    setSessionXp(prev => prev + 50);
-  }, [finalizeStandardGame, sessionStats, sessionXp]);
+    setFinalXpGained(totalXP);
+  }, [finalizeStandardGame, sessionStats]);
   
   const resetChallengeState = () => {
       setIsFirstAttempt(true);
@@ -104,7 +100,7 @@ export const SimetriaPontosGame: React.FC<SimetriaPontosGameProps> = ({ onReturn
     setGameOver(false);
     setIsChecking(false);
     setSessionStats({ firstTry: 0, other: 0, errors: 0 });
-    setSessionXp(0);
+    setFinalXpGained(0);
     setChallengeNumber(1);
     setComboCount(0);
     resetChallengeState();
@@ -148,14 +144,13 @@ export const SimetriaPontosGame: React.FC<SimetriaPontosGameProps> = ({ onReturn
 
       const newCombo = comboCount + 1;
       const comboBonus = newCombo >= COMBO_THRESHOLD ? Math.min(newCombo - COMBO_THRESHOLD + 2, 5) : 1;
-      const xpGained = (isFirstAttempt ? 10 : 5) * comboBonus;
+      const xpGainedForAnimation = (isFirstAttempt ? 10 : 5) * comboBonus;
       
       const message = newCombo >= COMBO_THRESHOLD ? `Correto! Combo ${newCombo}x!` : "Correto!";
       setUserMessage(message);
       setMessageType('success');
       
-      setSessionXp(prev => prev + xpGained);
-      setXpAnimation({ amount: xpGained, key: Date.now(), combo: newCombo });
+      setXpAnimation({ amount: xpGainedForAnimation, key: Date.now(), combo: newCombo });
       setComboCount(newCombo);
 
       setIsChecking(true);
@@ -252,7 +247,7 @@ export const SimetriaPontosGame: React.FC<SimetriaPontosGameProps> = ({ onReturn
            <ResultsScreen
               successes={sessionStats.firstTry}
               total={TOTAL_CHALLENGES}
-              xpEarned={sessionXp}
+              xpEarned={finalXpGained}
               badgePrefix={GAME_ID}
               onRestart={initializeGame}
               onReturnToMenu={onReturnToMenu}

@@ -1,7 +1,7 @@
 import React, { createContext, useState, useEffect, useCallback, useContext } from 'react';
 import { db } from '../firebase';
-import type { UserProfile, Badge, NotificationItem, GameStat, CombinacaoTotalStat, CombinacaoTotalChallenge, GarrafasStat, GarrafasChallenge } from '../types';
-import { ALL_BADGES_MAP } from '../data/achievements';
+import type { UserProfile, Badge, NotificationItem, GameStat, CombinacaoTotalStat, CombinacaoTotalChallenge, GarrafasStat, GarrafasChallenge, Difficulty } from '../types';
+import { ALL_BADGES_MAP, getMedalForScore } from '../data/achievements';
 import { AuthContext } from './AuthContext';
 // FIX: Corrected Firebase Firestore imports for v8 namespaced API.
 // FIX: Use compat import for Firebase v8 syntax.
@@ -28,7 +28,7 @@ export const getLevelColor = (level: number): string => {
 interface ProfileContextType {
   addXp: (amount: number) => Promise<void>;
   earnBadge: (badgeId: string) => Promise<void>;
-  finalizeStandardGame: (gameId: string, sessionStats: { firstTry: number; other: number; errors: number; xp: number; medalId?: string; }) => Promise<void>;
+  finalizeStandardGame: (gameId: string, sessionStats: { firstTry: number; other: number; errors: number; totalChallenges: number; difficulty?: Difficulty; }) => Promise<number>;
   finalizePasswordChallenge: (challengeId: string, errorCount: number, wasFirstTry: boolean) => Promise<void>;
   finalizeCombinacaoTotalChallenge: (challengeId: string, foundCombinations: string[]) => Promise<void>;
   finalizeGarrafasChallenge: (challengeId: string, attempts: number) => Promise<void>;
@@ -40,7 +40,7 @@ interface ProfileContextType {
 export const ProfileContext = createContext<ProfileContextType>({
   addXp: async () => {},
   earnBadge: async () => {},
-  finalizeStandardGame: async () => {},
+  finalizeStandardGame: async () => 0,
   finalizePasswordChallenge: async () => {},
   finalizeCombinacaoTotalChallenge: async () => {},
   finalizeGarrafasChallenge: async () => {},
@@ -132,10 +132,23 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const finalizeStandardGame = useCallback(async (
     gameId: string,
-    sessionStats: { firstTry: number; other: number; errors: number; xp: number; medalId?: string; }
-  ) => {
-    if (!user) return;
+    sessionStats: { firstTry: number; other: number; errors: number; totalChallenges: number; difficulty?: Difficulty; }
+  ): Promise<number> => {
+    if (!user) return 0;
     const userRef = db.doc(`users/${user.name}`);
+    
+    // --- Authoritative XP & Medal Calculation ---
+    const xpPerFirstTry = gameId.includes('segmentos') ? 15 : 10;
+    const xpPerOtherTry = gameId.includes('segmentos') ? 7 : 5;
+    const completionBonusXp = 50;
+    const difficultyBonus = sessionStats.difficulty === 'medium' ? 25 : sessionStats.difficulty === 'hard' ? 50 : 0;
+    
+    const baseXP = (sessionStats.firstTry * xpPerFirstTry) + (sessionStats.other * xpPerOtherTry);
+    const totalXP = baseXP + completionBonusXp + difficultyBonus;
+    
+    const medal = getMedalForScore(gameId, sessionStats.firstTry, sessionStats.totalChallenges);
+    const medalId = medal?.id;
+    // --- End of Calculation ---
 
     try {
         await db.runTransaction(async (transaction) => {
@@ -152,7 +165,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
             gameStats[gameId] = currentStats;
 
             // 2. Update XP and Level
-            const newXp = profile.xp + sessionStats.xp;
+            const newXp = profile.xp + totalXP;
             let newLevel = profile.level;
             let leveledUp = false;
             let levelBadges: string[] = [];
@@ -169,13 +182,13 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
             // 3. Update Badges
             let newBadges = [...(profile.badges || [])];
-            if (sessionStats.medalId && !newBadges.includes(sessionStats.medalId)) {
-                const badgeInfo = ALL_BADGES_MAP.get(sessionStats.medalId);
+            if (medalId && !newBadges.includes(medalId)) {
+                const badgeInfo = ALL_BADGES_MAP.get(medalId);
                 if (badgeInfo) {
-                    const prefix = sessionStats.medalId.substring(0, sessionStats.medalId.lastIndexOf('_'));
+                    const prefix = medalId.substring(0, medalId.lastIndexOf('_'));
                     if (badgeInfo.tier === 'gold') newBadges = newBadges.filter(b => !b.startsWith(prefix) || b === `${prefix}_hard` || b === `${prefix}_medium` || b === `${prefix}_easy`);
                     else if (badgeInfo.tier === 'silver') newBadges = newBadges.filter(b => b !== `${prefix}_bronze`);
-                    newBadges.push(sessionStats.medalId);
+                    newBadges.push(medalId);
                 }
             }
             newBadges.push(...levelBadges);
@@ -193,8 +206,8 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
             setTimeout(() => {
                 if (leveledUp) addNotification({ type: 'level', payload: { from: initialLevel, to: newLevel } });
                 
-                if (sessionStats.medalId && !profile.badges.includes(sessionStats.medalId)) {
-                    const badgeInfo = ALL_BADGES_MAP.get(sessionStats.medalId);
+                if (medalId && !profile.badges.includes(medalId)) {
+                    const badgeInfo = ALL_BADGES_MAP.get(medalId);
                     if(badgeInfo) addNotification({ type: 'badge', payload: badgeInfo });
                 }
                 
@@ -206,8 +219,10 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
                 });
             }, 0);
         });
+        return totalXP; // Return calculated XP on success
     } catch (e) {
         console.error("Game finalization transaction failed: ", e);
+        return 0; // Return 0 on failure
     }
   }, [user, addNotification, checkAndAwardLevelBadges]);
 

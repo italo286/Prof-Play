@@ -10,7 +10,6 @@ import { ProfileContext, getLevelColor } from '../contexts/ProfileContext';
 import { playSuccessSound, playErrorSound } from '../utils/audio';
 import { PlayerStatsModal } from './PlayerStatsModal';
 import { BnccInfoButton } from './BnccInfoButton';
-import { getMedalForScore } from '../data/achievements';
 import { HintModal } from './HintModal';
 
 interface EncontrarPontosGameProps {
@@ -60,7 +59,7 @@ export const EncontrarPontosGame: React.FC<EncontrarPontosGameProps> = ({ onRetu
   const [messageType, setMessageType] = useState<MessageType>('info');
   
   const [gameOver, setGameOver] = useState<boolean>(false);
-  const [sessionXp, setSessionXp] = useState(0);
+  const [finalXpGained, setFinalXpGained] = useState(0);
   const [xpAnimation, setXpAnimation] = useState<{ amount: number; key: number, combo: number } | null>(null);
 
   const [isStatsModalOpen, setStatsModalOpen] = useState(false);
@@ -95,7 +94,7 @@ export const EncontrarPontosGame: React.FC<EncontrarPontosGameProps> = ({ onRetu
     setCurrentChallengeIndex(0);
     setTargetCoordinate(newChallenges[0]);
     setSessionStats({ firstTry: 0, other: 0, errors: 0 });
-    setSessionXp(0);
+    setFinalXpGained(0);
     resetChallengeState();
     setGameOver(false);
     setComboCount(0);
@@ -113,18 +112,14 @@ export const EncontrarPontosGame: React.FC<EncontrarPontosGameProps> = ({ onRetu
     setGameOver(true);
     setUserMessage('');
     
-    const medal = getMedalForScore(GAME_ID, sessionStats.firstTry, TOTAL_CHALLENGES);
-    const bonusXp = 50;
-    
-    await finalizeStandardGame(GAME_ID, {
+    const totalXP = await finalizeStandardGame(GAME_ID, {
         ...sessionStats,
-        xp: sessionXp + bonusXp,
-        medalId: medal?.id,
+        totalChallenges: TOTAL_CHALLENGES,
     });
     
-    setSessionXp(prev => prev + bonusXp);
+    setFinalXpGained(totalXP);
 
-  }, [user, sessionStats, sessionXp, finalizeStandardGame]);
+  }, [user, sessionStats, finalizeStandardGame]);
 
   const handlePointSelected = useCallback(async (clickedX: number, clickedY: number) => {
     if (gameOver || !targetCoordinate || !user) return;
@@ -140,13 +135,12 @@ export const EncontrarPontosGame: React.FC<EncontrarPontosGameProps> = ({ onRetu
       
       const newCombo = comboCount + 1;
       const comboBonus = newCombo >= COMBO_THRESHOLD ? Math.min(newCombo - COMBO_THRESHOLD + 2, 5) : 1;
-      const xpGained = (isFirstAttemptForThisTarget ? 10 : 5) * comboBonus;
+      const xpGainedForAnimation = (isFirstAttemptForThisTarget ? 10 : 5) * comboBonus;
       
       const message = newCombo >= COMBO_THRESHOLD ? `Correto! Combo ${newCombo}x!` : "Parabéns!";
       showTemporaryMessage(message, 'success');
       
-      setSessionXp(prev => prev + xpGained);
-      setXpAnimation({ amount: xpGained, key: Date.now(), combo: newCombo });
+      setXpAnimation({ amount: xpGainedForAnimation, key: Date.now(), combo: newCombo });
       setComboCount(newCombo);
       
       const nextChallengeIndex = currentChallengeIndex + 1;
@@ -240,7 +234,7 @@ export const EncontrarPontosGame: React.FC<EncontrarPontosGameProps> = ({ onRetu
           <ResultsScreen
             successes={sessionStats.firstTry}
             total={challenges.length}
-            xpEarned={sessionXp}
+            xpEarned={finalXpGained}
             badgePrefix={GAME_ID}
             onRestart={initializeGame}
             onReturnToMenu={onReturnToMenu}

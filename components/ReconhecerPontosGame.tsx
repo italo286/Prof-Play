@@ -10,7 +10,6 @@ import { ProfileContext, getLevelColor } from '../contexts/ProfileContext';
 import { playSuccessSound, playErrorSound } from '../utils/audio';
 import { PlayerStatsModal } from './PlayerStatsModal';
 import { BnccInfoButton } from './BnccInfoButton';
-import { getMedalForScore } from '../data/achievements';
 import { HintModal } from './HintModal';
 
 const GAME_ID = 'reconhecer-pontos';
@@ -61,7 +60,7 @@ export const ReconhecerPontosGame: React.FC<ReconhecerPontosGameProps> = ({ onRe
   const [isChallengeActive, setIsChallengeActive] = useState<boolean>(true);
   
   const [gameOver, setGameOver] = useState<boolean>(false);
-  const [sessionXp, setSessionXp] = useState(0);
+  const [finalXpGained, setFinalXpGained] = useState(0);
   const [xpAnimation, setXpAnimation] = useState<{ amount: number; key: number, combo: number } | null>(null);
   const [isStatsModalOpen, setStatsModalOpen] = useState(false);
   
@@ -92,7 +91,7 @@ export const ReconhecerPontosGame: React.FC<ReconhecerPontosGameProps> = ({ onRe
     setCurrentChallengeIndex(0);
     setTargetCoordinate(newChallenges[0]);
     setSessionStats({ firstTry: 0, other: 0, errors: 0 });
-    setSessionXp(0);
+    setFinalXpGained(0);
     setGameOver(false);
     setComboCount(0);
     resetChallengeState();
@@ -107,17 +106,14 @@ export const ReconhecerPontosGame: React.FC<ReconhecerPontosGameProps> = ({ onRe
   const completeGame = useCallback(async () => {
     setGameOver(true);
     setUserMessage('');
-    const medal = getMedalForScore(GAME_ID, sessionStats.firstTry, TOTAL_CHALLENGES);
-    const bonusXp = 50;
     
-    await finalizeStandardGame(GAME_ID, {
+    const totalXP = await finalizeStandardGame(GAME_ID, {
       ...sessionStats,
-      xp: sessionXp + bonusXp,
-      medalId: medal?.id,
+      totalChallenges: TOTAL_CHALLENGES,
     });
 
-    setSessionXp(prev => prev + 50);
-  }, [finalizeStandardGame, sessionStats, sessionXp]);
+    setFinalXpGained(totalXP);
+  }, [finalizeStandardGame, sessionStats]);
 
   const handleGuessSubmit = useCallback(async (guessedCoords: Point) => {
     if (gameOver || !targetCoordinate) return;
@@ -133,13 +129,12 @@ export const ReconhecerPontosGame: React.FC<ReconhecerPontosGameProps> = ({ onRe
       
       const newCombo = comboCount + 1;
       const comboBonus = newCombo >= COMBO_THRESHOLD ? Math.min(newCombo - COMBO_THRESHOLD + 2, 5) : 1;
-      const xpGained = (isFirstAttempt ? 10 : 5) * comboBonus;
+      const xpGainedForAnimation = (isFirstAttempt ? 10 : 5) * comboBonus;
       
       const message = newCombo >= COMBO_THRESHOLD ? `Correto! Combo ${newCombo}x!` : "Correto!";
       showTemporaryMessage(message, 'success');
 
-      setSessionXp(prev => prev + xpGained);
-      setXpAnimation({ amount: xpGained, key: Date.now(), combo: newCombo });
+      setXpAnimation({ amount: xpGainedForAnimation, key: Date.now(), combo: newCombo });
       setComboCount(newCombo);
 
       setIsChallengeActive(false);
@@ -248,7 +243,7 @@ export const ReconhecerPontosGame: React.FC<ReconhecerPontosGameProps> = ({ onRe
           <ResultsScreen
             successes={sessionStats.firstTry}
             total={challenges.length}
-            xpEarned={sessionXp}
+            xpEarned={finalXpGained}
             badgePrefix={GAME_ID}
             onRestart={initializeGame}
             onReturnToMenu={onReturnToMenu}
