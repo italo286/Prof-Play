@@ -33,6 +33,70 @@ const getRankingInfo = (rank: number) => {
     }
 };
 
+interface StudentRowProps {
+    student: UserProfile;
+    rank: number;
+    onViewReport: (student: UserProfile) => void;
+}
+
+const StudentRow: React.FC<StudentRowProps> = React.memo(({ student, rank, onViewReport }) => {
+    const rankingInfo = getRankingInfo(rank);
+    const rowBg = rankingInfo ? rankingInfo.bg : 'bg-slate-800';
+    const gameStats = student.gameStats || {};
+    
+    return (
+        <tr className={`${rowBg} hover:bg-slate-700/50 border-l-4 ${rankingInfo ? rankingInfo.border : 'border-transparent'} transition-colors duration-200`}>
+            <th scope="row" className={`p-3 font-semibold text-slate-100 sticky left-0 z-10 ${rowBg}`}>
+                <div className="flex items-center gap-3 whitespace-nowrap">
+                    <span className={`w-6 text-center font-bold ${rankingInfo ? rankingInfo.color : 'text-slate-400'}`}>{rank + 1}</span>
+                    {student.avatar && <img src={student.avatar} alt={`Avatar de ${student.name}`} className="w-8 h-8 rounded-full bg-slate-700"/>}
+                    <span>{student.name}</span>
+                    {rankingInfo && <i className={`fas ${rankingInfo.icon} ${rankingInfo.color} text-lg ml-1`}></i>}
+                </div>
+            </th>
+            <td className="p-3 text-center">{student.level}</td>
+            <td className="p-3 text-center">{student.xp}</td>
+            {gameIdsInOrder.map(gameId => {
+                const stats = gameId === 'password_unlock'
+                    ? Object.entries(gameStats).reduce((acc, [key, value]) => {
+                        if (key.startsWith('password_unlock_')) {
+                            acc.successFirstTry += value.successFirstTry;
+                            acc.successOther += value.successOther;
+                            acc.errors += value.errors;
+                        }
+                        return acc;
+                      }, { successFirstTry: 0, successOther: 0, errors: 0 })
+                    : gameStats[gameId] || { successFirstTry: 0, successOther: 0, errors: 0 };
+                const totalSuccess = stats.successFirstTry + stats.successOther;
+                return (
+                    <React.Fragment key={`${student.name}-${gameId}`}>
+                        <td className="p-2 text-center text-green-400 font-medium border-l border-slate-700">{totalSuccess}</td>
+                        <td className="p-2 text-center text-red-400 font-medium">{stats.errors}</td>
+                    </React.Fragment>
+                );
+            })}
+            <td className="p-2 border-l border-slate-700 min-w-[100px]">
+                <div className="flex flex-wrap gap-2 justify-center items-center">
+                    {student.badges.length > 0 ? (
+                        student.badges.map(badgeId => {
+                            const badge = ALL_BADGES_MAP.get(badgeId);
+                            if (!badge) return null;
+                            const tierColor = { gold: 'text-amber-400', silver: 'text-gray-400', bronze: 'text-orange-500', level: 'text-sky-400' }[badge.tier];
+                            return <i key={badgeId} className={`fas ${badge.icon} ${tierColor} text-xl`} title={badge.name}></i>;
+                        })
+                    ) : <span className="text-xs text-slate-500">-</span>}
+                </div>
+            </td>
+            <td className="p-2 border-l border-slate-700 text-center">
+                <button onClick={() => onViewReport(student)} className="text-sky-400 hover:text-sky-300" title="Ver relatório completo">
+                    <i className="fas fa-chart-bar text-lg"></i>
+                </button>
+            </td>
+        </tr>
+    );
+});
+
+
 interface ClassDetailTableProps {
     students: UserProfile[];
     onViewReport: (student: UserProfile) => void;
@@ -63,61 +127,14 @@ export const ClassDetailTable: React.FC<ClassDetailTableProps> = ({ students, on
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-700">
-                    {students.map((student, index) => {
-                        const rankingInfo = getRankingInfo(index);
-                        const rowBg = rankingInfo ? rankingInfo.bg : 'bg-slate-800';
-                        const gameStats = student.gameStats || {};
-                        return (
-                            <tr key={student.name} className={`${rowBg} hover:bg-slate-700/50 border-l-4 ${rankingInfo ? rankingInfo.border : 'border-transparent'} transition-colors duration-200`}>
-                                <th scope="row" className={`p-3 font-semibold text-slate-100 sticky left-0 z-10 ${rowBg}`}>
-                                    <div className="flex items-center gap-3 whitespace-nowrap">
-                                        <span className={`w-6 text-center font-bold ${rankingInfo ? rankingInfo.color : 'text-slate-400'}`}>{index + 1}</span>
-                                        {student.avatar && <img src={student.avatar} alt={`Avatar de ${student.name}`} className="w-8 h-8 rounded-full bg-slate-700"/>}
-                                        <span>{student.name}</span>
-                                        {rankingInfo && <i className={`fas ${rankingInfo.icon} ${rankingInfo.color} text-lg ml-1`}></i>}
-                                    </div>
-                                </th>
-                                <td className="p-3 text-center">{student.level}</td>
-                                <td className="p-3 text-center">{student.xp}</td>
-                                {gameIdsInOrder.map(gameId => {
-                                    const stats = gameId === 'password_unlock'
-                                        ? Object.entries(gameStats).reduce((acc, [key, value]) => {
-                                            if (key.startsWith('password_unlock_')) {
-                                                acc.successFirstTry += value.successFirstTry;
-                                                acc.successOther += value.successOther;
-                                                acc.errors += value.errors;
-                                            }
-                                            return acc;
-                                          }, { successFirstTry: 0, successOther: 0, errors: 0 })
-                                        : gameStats[gameId] || { successFirstTry: 0, successOther: 0, errors: 0 };
-                                    const totalSuccess = stats.successFirstTry + stats.successOther;
-                                    return (
-                                        <React.Fragment key={`${student.name}-${gameId}`}>
-                                            <td className="p-2 text-center text-green-400 font-medium border-l border-slate-700">{totalSuccess}</td>
-                                            <td className="p-2 text-center text-red-400 font-medium">{stats.errors}</td>
-                                        </React.Fragment>
-                                    );
-                                })}
-                                <td className="p-2 border-l border-slate-700 min-w-[100px]">
-                                    <div className="flex flex-wrap gap-2 justify-center items-center">
-                                        {student.badges.length > 0 ? (
-                                            student.badges.map(badgeId => {
-                                                const badge = ALL_BADGES_MAP.get(badgeId);
-                                                if (!badge) return null;
-                                                const tierColor = { gold: 'text-amber-400', silver: 'text-gray-400', bronze: 'text-orange-500', level: 'text-sky-400' }[badge.tier];
-                                                return <i key={badgeId} className={`fas ${badge.icon} ${tierColor} text-xl`} title={badge.name}></i>;
-                                            })
-                                        ) : <span className="text-xs text-slate-500">-</span>}
-                                    </div>
-                                </td>
-                                <td className="p-2 border-l border-slate-700 text-center">
-                                    <button onClick={() => onViewReport(student)} className="text-sky-400 hover:text-sky-300" title="Ver relatório completo">
-                                        <i className="fas fa-chart-bar text-lg"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                        );
-                    })}
+                    {students.map((student, index) => (
+                        <StudentRow 
+                            key={student.name}
+                            student={student}
+                            rank={index}
+                            onViewReport={onViewReport}
+                        />
+                    ))}
                 </tbody>
             </table>
         </div>

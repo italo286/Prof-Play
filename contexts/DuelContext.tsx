@@ -197,21 +197,23 @@ export const DuelProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const finishDuel = useCallback(async (duelId: string, timeFinished: number) => {
     if (!user) return;
-    // FIX: Switched to v8 syntax
     const duelRef = db.doc(`duels/${duelId}`);
     await db.runTransaction(async (transaction) => {
         const doc = await transaction.get(duelRef);
-        if (!doc.exists) return;
+        if (!doc.exists) throw new Error("Duel not found");
         const duel = doc.data() as DuelState;
+
+        // Prevent re-finishing
+        if (duel.status === 'finished') return;
+
         const playerIndex = duel.players.findIndex(p => p.name === user.name);
         if (playerIndex === -1 || duel.players[playerIndex].timeFinished !== null) return;
 
-        const newPlayers = [...duel.players];
+        const newPlayers = [...duel.players] as [DuelPlayer, DuelPlayer];
         newPlayers[playerIndex].timeFinished = timeFinished;
         newPlayers[playerIndex].progress = TOTAL_CHALLENGES; // Ensure progress is maxed
 
-        const opponentIndex = 1 - playerIndex;
-        const opponent = newPlayers[opponentIndex];
+        const opponent = newPlayers[1 - playerIndex];
         
         let newStatus: DuelState['status'] = 'playing';
         let newWinner: string | null = null;
@@ -224,7 +226,11 @@ export const DuelProvider: React.FC<{ children: React.ReactNode }> = ({ children
             newWinner = duel.winner;
         }
         
-        if (newWinner === user.name) earnBadge('duelist');
+        if (newWinner === user.name) {
+            // This transaction ensures earnBadge is only called once a winner is confirmed.
+            // earnBadge itself will handle not awarding duplicates.
+            setTimeout(() => earnBadge('duelist'), 0);
+        }
         
         transaction.update(duelRef, { players: newPlayers, status: newStatus, winner: newWinner });
     });
@@ -271,16 +277,15 @@ export const DuelProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   const submitDuelGuess = useCallback(async (duelId: string, guess: string) => {
     if (!user) return;
-    // FIX: Switched to v8 syntax
     const duelRef = db.doc(`duels/${duelId}`);
     await db.runTransaction(async (transaction) => {
         const doc = await transaction.get(duelRef);
-        if (!doc.exists) return;
+        if (!doc.exists) throw new Error("Duel not found");
         const duel = doc.data() as DuelState;
-        if (!duel.passwordGameState) return;
+        if (!duel.passwordGameState) throw new Error("Password game state not found");
 
         const opponentName = duel.players.find(p => p.name !== user.name)?.name;
-        if (!opponentName) return;
+        if (!opponentName) throw new Error("Opponent not found");
         
         const opponentState = duel.passwordGameState[opponentName];
         const correctCount = calculatePasswordGuess(guess, opponentState.password);
@@ -290,7 +295,7 @@ export const DuelProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (guess === opponentState.password) {
             transaction.update(duelRef, { [selfKey]: newGuesses, winner: user.name, status: 'finished' });
-            earnBadge('duelist');
+            setTimeout(() => earnBadge('duelist'), 0);
         } else {
             transaction.update(duelRef, { [selfKey]: newGuesses });
         }
@@ -350,7 +355,7 @@ export const DuelProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           if (isCorrect) {
               transaction.update(duelRef, { [selfKey]: newGuesses, winner: user.name, status: 'finished' });
-              earnBadge('duelist');
+              setTimeout(() => earnBadge('duelist'), 0);
           } else {
               transaction.update(duelRef, { [selfKey]: newGuesses });
           }

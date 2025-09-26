@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
-import { db } from '../firebase';
+import { db, rtdb } from '../firebase';
 import type { UserProfile } from '../types';
 // FIX: Corrected Firebase Firestore imports for v8 namespaced API.
 // FIX: Use compat import for Firebase v8 syntax.
@@ -52,8 +52,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       unsubscribe = userRef.onSnapshot((doc) => {
         if (doc.exists) {
           const userProfile = doc.data() as UserProfile;
-          const presenceRef = db.doc(`presence/${userProfile.name}`);
-          presenceRef.set({ lastSeen: firebase.firestore.FieldValue.serverTimestamp() });
           setUser(userProfile);
         } else {
           // User was deleted or logged out from another tab
@@ -74,36 +72,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribe();
   }, []);
   
-  // Heartbeat effect to keep presence updated
+  // Realtime Database Presence Management
   useEffect(() => {
     if (!user) return;
 
-    const heartbeatInterval = setInterval(() => {
-        // FIX: Switched to v8 syntax for doc and setDoc
-        const presenceRef = db.doc(`presence/${user.name}`);
-        presenceRef.set({
-            lastSeen: firebase.firestore.FieldValue.serverTimestamp()
-        });
-    }, 180000); // Update every 3 minutes (180 seconds) to reduce writes
+    const userStatusDatabaseRef = rtdb.ref(`/status/${user.name}`);
 
-    return () => clearInterval(heartbeatInterval);
-  }, [user]);
+    const isOnlineForDatabase = {
+        state: 'online',
+        last_changed: firebase.database.ServerValue.TIMESTAMP,
+        name: user.name,
+        avatar: user.avatar,
+        classCode: user.classCode,
+    };
 
-  // Presence management for tab close
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-        if (user) {
-            // FIX: Switched to v8 syntax for doc and deleteDoc
-            const presenceRef = db.doc(`presence/${user.name}`);
-            presenceRef.delete();
+    const isOfflineForDatabase = {
+        state: 'offline',
+        last_changed: firebase.database.ServerValue.TIMESTAMP,
+    };
+    
+    // Using on 'value' is the standard way to check for connection status with RTDB
+    rtdb.ref('.info/connected').on('value', (snapshot) => {
+        if (snapshot.val() === false) {
+            return;
         }
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => {
-        window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, [user]);
 
+        userStatusDatabaseRef.onDisconnect().set(isOfflineForDatabase).then(() => {
+            userStatusDatabaseRef.set(isOnlineForDatabase);
+        });
+    });
+   
+    return () => {
+        userStatusDatabaseRef.set(isOfflineForDatabase);
+        rtdb.ref('.info/connected').off();
+    }
+  }, [user]);
+  
   const login = useCallback(async (name: string, pass: string) => {
     // FIX: Switched to v8 syntax for doc and getDoc
     const userDocRef = db.doc(`users/${name}`);
@@ -114,9 +118,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const profile = userDoc.data() as UserProfile;
     if (profile.password !== pass) return 'wrong_pass';
 
-    // FIX: Switched to v8 syntax for doc, setDoc, and serverTimestamp
-    const presenceRef = db.doc(`presence/${name}`);
-    await presenceRef.set({ lastSeen: firebase.firestore.FieldValue.serverTimestamp() });
     setUser(profile);
     sessionStorage.setItem(CURRENT_USER_STORAGE_KEY, name);
     return 'success';
@@ -156,9 +157,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // FIX: Switched to v8 syntax for setDoc
     await userDocRef.set(newProfile);
     
-    // FIX: Switched to v8 syntax for doc, setDoc, and serverTimestamp
-    const presenceRef = db.doc(`presence/${name}`);
-    await presenceRef.set({ lastSeen: firebase.firestore.FieldValue.serverTimestamp() });
     setUser(newProfile);
     sessionStorage.setItem(CURRENT_USER_STORAGE_KEY, name);
     return { status: 'success' };
@@ -167,14 +165,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = useCallback(async () => {
     try {
         if (user) {
-            // FIX: Switched to v8 syntax for doc and deleteDoc
-            const presenceRef = db.doc(`presence/${user.name}`);
-            await presenceRef.delete();
+            const userStatusDatabaseRef = rtdb.ref(`/status/${user.name}`);
+            await userStatusDatabaseRef.set({
+                state: 'offline',
+                last_changed: firebase.database.ServerValue.TIMESTAMP,
+            });
         }
     } catch (error) {
         console.error("Failed to clear presence on logout:", error);
     } finally {
-        // This ensures logout always happens client-side, even if presence update fails.
         sessionStorage.removeItem(CURRENT_USER_STORAGE_KEY);
         setUser(null);
     }

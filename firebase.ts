@@ -2,6 +2,7 @@
 // FIX: Use compat imports for Firebase v8 syntax.
 import firebase from "firebase/compat/app";
 import "firebase/compat/firestore";
+import "firebase/compat/database"; // Import for Realtime Database
 
 
 // --- CONFIGURAÇÃO DO FIREBASE ---
@@ -50,6 +51,7 @@ if (!firebase.apps.length) {
 // Exporta a instância do Firestore para ser usada em outros lugares no aplicativo
 // Habilita a persistência offline para uma melhor experiência do usuário
 const db = firebase.firestore();
+const rtdb = firebase.database(); // Export Realtime Database
 
 // FIX: Switched to v8 `enablePersistence` method.
 db.enablePersistence()
@@ -62,4 +64,4 @@ db.enablePersistence()
   });
 
 
-export { db };
+export { db, rtdb };

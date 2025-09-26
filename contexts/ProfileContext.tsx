@@ -230,7 +230,9 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
         await db.runTransaction(async (transaction) => {
             const userDoc = await transaction.get(userRef);
-            if (!userDoc.exists) return;
+            if (!userDoc.exists) {
+                throw new Error("User document does not exist!");
+            }
 
             const profile = userDoc.data() as UserProfile;
             const existingStats = profile.combinacaoTotalStats || [];
@@ -244,6 +246,8 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
             };
 
             if (statIndex > -1) {
+                // Do not update if already complete to preserve original completion time
+                if (existingStats[statIndex].isComplete) return;
                 existingStats[statIndex] = finalStat;
             } else {
                 existingStats.push(finalStat);
@@ -262,7 +266,9 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
         await db.runTransaction(async (transaction) => {
             const userDoc = await transaction.get(userRef);
-            if (!userDoc.exists) return;
+            if (!userDoc.exists) {
+                throw new Error("User document does not exist!");
+            }
 
             const profile = userDoc.data() as UserProfile;
             const existingStats = profile.garrafasStats || [];
@@ -276,7 +282,8 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
             };
 
             if (statIndex > -1) {
-                if (existingStats[statIndex].isComplete) return; // Already completed, do nothing
+                // Do not update if already complete
+                if (existingStats[statIndex].isComplete) return;
                 existingStats[statIndex] = finalStat;
             } else {
                 existingStats.push(finalStat);

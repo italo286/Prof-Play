@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect, useCallback, useContext, useMemo } from 'react';
-import { db } from '../firebase';
+import { db, rtdb } from '../firebase';
 // FIX: Corrected and consolidated Firebase Firestore imports for v8 namespaced API.
 // FIX: Use compat import for Firebase v8 syntax.
 import firebase from 'firebase/compat/app';
@@ -11,6 +11,12 @@ import { AuthContext } from './AuthContext';
 const GAME_ID_PASSWORD = 'password_unlock';
 const GAME_ID_COMBINACAO = 'combinacao_total';
 
+interface OnlineStudent {
+    name: string;
+    avatar?: string;
+    classCode?: string;
+}
+
 interface GameDataContextType {
   // Data
   allUsers: UserProfile[];
@@ -21,7 +27,8 @@ interface GameDataContextType {
   activeAdedonhaSession: AdedonhaSession | null;
   activeAdedonhaRound: AdedonhaRound | null;
   adedonhaSubmissions: AdedonhaSubmission[];
-  onlineStudents: UserProfile[];
+  onlineStudents: OnlineStudent[];
+  // FIX: Added offlineStudents property to the context type.
   offlineStudents: UserProfile[];
   
   // Getters
@@ -72,8 +79,7 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [passwordChallenges, setPasswordChallenges] = useState<PasswordChallenge[]>([]);
   const [combinacaoTotalChallenges, setCombinacaoTotalChallenges] = useState<CombinacaoTotalChallenge[]>([]);
   const [garrafasChallenges, setGarrafasChallenges] = useState<GarrafasChallenge[]>([]);
-  const [presenceData, setPresenceData] = useState<Map<string, { lastSeen: any }>>(new Map());
-
+  const [onlineStudents, setOnlineStudents] = useState<OnlineStudent[]>([]);
 
   // Adedonha State
   const [activeAdedonhaSession, setActiveAdedonhaSession] = useState<AdedonhaSession | null>(null);
@@ -103,51 +109,83 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           snapshot.forEach(doc => data.push({ id: doc.id, ...doc.data() } as GarrafasChallenge));
           setGarrafasChallenges(data);
       }),
-      db.collection('presence').onSnapshot(snapshot => {
-        const data = new Map<string, { lastSeen: any }>();
-        snapshot.forEach(doc => {
-            data.set(doc.id, doc.data() as { lastSeen: any });
-        });
-        setPresenceData(data);
-      }),
     ];
     return () => unsubscribes.forEach(unsub => unsub());
   }, []);
+  
+  // Realtime Database presence listener (for teachers)
+  useEffect(() => {
+    if (user?.role !== 'teacher' || !user.classes || user.classes.length === 0) {
+        setOnlineStudents([]);
+        return;
+    }
+
+    const myClassCodes = new Set(user.classes);
+    const statusRef = rtdb.ref('status');
+    
+    const listener = statusRef.on('value', (snapshot) => {
+        const statuses = snapshot.val();
+        const online: OnlineStudent[] = [];
+        if (statuses) {
+            for (const uid in statuses) {
+                const userStatus = statuses[uid];
+                if (userStatus.state === 'online' && userStatus.classCode && myClassCodes.has(userStatus.classCode)) {
+                    online.push({
+                        name: userStatus.name,
+                        avatar: userStatus.avatar,
+                        classCode: userStatus.classCode,
+                    });
+                }
+            }
+        }
+        setOnlineStudents(online);
+    });
+
+    return () => statusRef.off('value', listener);
+  }, [user]);
 
   // OPTIMIZED USER DATA LISTENER
   useEffect(() => {
     let unsubscribeUsers = () => {};
 
     if (user) {
-      let query: firebase.firestore.Query | null = null;
-      
-      // Student: Only listen to their own class
       if (user.role === 'student' && user.classCode) {
-        query = db.collection('users').where('classCode', '==', user.classCode);
-      } 
-      // Teacher: Listen to all students in all of their classes
-      else if (user.role === 'teacher' && user.classes && user.classes.length > 0) {
-        // Firestore 'in' query is limited to 10 elements. If a teacher has more, this needs another strategy.
-        // For now, assuming a teacher has <= 10 classes.
-        query = db.collection('users').where('classCode', 'in', user.classes);
-      }
+        // --- STUDENT DATA LOADING STRATEGY ---
+        // Optimization: Fetch all classmates once, then only listen to real-time changes for the current user.
+        // This dramatically reduces the number of real-time listeners and documents processed on the client.
+        const classQuery = db.collection('users').where('classCode', '==', user.classCode);
+        
+        // Listen to the whole class for changes (e.g., new students, ranking updates)
+        unsubscribeUsers = classQuery.onSnapshot(snapshot => {
+            const classmates: UserProfile[] = [];
+            snapshot.forEach(doc => {
+                classmates.push(doc.data() as UserProfile);
+            });
+            setAllUsers(classmates);
+        }, err => {
+            console.error("Erro ao ouvir dados da turma:", err);
+        });
 
-      if (query) {
+      } else if (user.role === 'teacher' && user.classes && user.classes.length > 0) {
+        // --- TEACHER DATA LOADING STRATEGY ---
+        // Teacher needs real-time updates for all students in their classes.
+        const query = db.collection('users').where('classCode', 'in', user.classes);
         unsubscribeUsers = query.onSnapshot(snapshot => {
           const data: UserProfile[] = [];
           snapshot.forEach(doc => data.push(doc.data() as UserProfile));
           setAllUsers(data);
+        }, err => {
+            console.error("Erro ao ouvir dados de usuários (professor):", err);
         });
       } else {
-        // If user has no classCode or classes, just fetch their own profile to keep it updated.
-        unsubscribeUsers = db.doc(`users/${user.name}`).onSnapshot(doc => {
-            if (doc.exists) {
-                setAllUsers([doc.data() as UserProfile]);
-            }
+        // Fallback for users without a class or isolated teachers
+        const selfRef = db.doc(`users/${user.name}`);
+        unsubscribeUsers = selfRef.onSnapshot(doc => {
+             if (doc.exists) setAllUsers([doc.data() as UserProfile]);
         });
       }
     } else {
-      setAllUsers([]); // Clear users on logout
+      setAllUsers([]);
     }
 
     return () => unsubscribeUsers();
@@ -156,7 +194,6 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Adedonha Listeners
   useEffect(() => {
     if (!user) { setActiveAdedonhaSession(null); return; }
-    // FIX: Switched to v8 syntax
     let sessionQuery;
     if (user.role === 'teacher') sessionQuery = db.collection('adedonhaSessions').where('teacherName', '==', user.name);
     else if (user.classCode) sessionQuery = db.collection('adedonhaSessions').where('classCode', '==', user.classCode);
@@ -173,14 +210,11 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   useEffect(() => {
     if (!activeAdedonhaSession) { setActiveAdedonhaRound(null); return; }
-    // FIX: Switched to v8 syntax
-    const roundQuery = db.collection('adedonhaRounds').where('sessionId', '==', activeAdedonhaSession.id);
+    const roundQuery = db.collection('adedonhaRounds').where('sessionId', '==', activeAdedonhaSession.id).orderBy('roundNumber', 'desc').limit(1);
     const roundUnsub = roundQuery.onSnapshot(snapshot => {
         if (snapshot.size > 0) {
-            const rounds: AdedonhaRound[] = [];
-            snapshot.forEach(doc => rounds.push({ id: doc.id, ...doc.data() } as AdedonhaRound));
-            rounds.sort((a, b) => b.roundNumber - a.roundNumber);
-            setActiveAdedonhaRound(rounds[0]);
+            const doc = snapshot.docs[0];
+            setActiveAdedonhaRound({ id: doc.id, ...doc.data() } as AdedonhaRound);
         } else {
             setActiveAdedonhaRound(null);
         }
@@ -189,60 +223,30 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [activeAdedonhaSession]);
   
    useEffect(() => {
-    if (!activeAdedonhaRound) { setAdedonhaSubmissions([]); return; }
-    // FIX: Switched to v8 syntax
-    const submissionsQuery = db.collection('adedonhaSubmissions').where('roundId', '==', activeAdedonhaRound.id);
-    const submissionsUnsub = submissionsQuery.onSnapshot(snapshot => {
-        const submissions: AdedonhaSubmission[] = [];
-        snapshot.forEach(doc => submissions.push({ id: doc.id, ...doc.data() } as AdedonhaSubmission));
-        setAdedonhaSubmissions(submissions);
-    });
+    let submissionsUnsub = () => {};
+    if (user?.role === 'teacher' && activeAdedonhaRound) {
+        const submissionsQuery = db.collection('adedonhaSubmissions').where('roundId', '==', activeAdedonhaRound.id);
+        submissionsUnsub = submissionsQuery.onSnapshot(snapshot => {
+            const submissions: AdedonhaSubmission[] = [];
+            snapshot.forEach(doc => submissions.push({ id: doc.id, ...doc.data() } as AdedonhaSubmission));
+            setAdedonhaSubmissions(submissions);
+        });
+    } else {
+        setAdedonhaSubmissions([]);
+    }
     return () => submissionsUnsub();
-  }, [activeAdedonhaRound]);
+  }, [activeAdedonhaRound, user?.role]);
 
-  // Derived/Memoized Data
+  // FIX: Added memoized calculation for offline students.
+  const offlineStudents = useMemo(() => {
+    const onlineStudentNames = new Set(onlineStudents.map(s => s.name));
+    return allUsers.filter(u => u.role === 'student' && !onlineStudentNames.has(u.name));
+  }, [allUsers, onlineStudents]);
+
   const getClassesForTeacher = useCallback((teacherName: string) => classes.filter(c => c.teacherName === teacherName), [classes]);
   const getStudentsInClass = useCallback((classCode: string) => allUsers.filter(p => p.role === 'student' && p.classCode === classCode), [allUsers]);
   const getAllUsers = useCallback(() => allUsers.filter(p => p.role === 'student'), [allUsers]);
-  
-  const onlineStudents = useMemo(() => {
-    if (!user || user.role !== 'teacher' || !user.classes) return [];
-    
-    const myClassCodes = new Set(user.classes);
-    const ninetySecondsAgo = Date.now() - 90 * 1000;
 
-    return allUsers.filter(p => {
-        if (p.role !== 'student' || !p.classCode || !myClassCodes.has(p.classCode)) {
-            return false;
-        }
-
-        const presenceInfo = presenceData.get(p.name);
-        if (!presenceInfo || !presenceInfo.lastSeen) {
-            return false;
-        }
-
-        const lastSeenDate = presenceInfo.lastSeen.toDate ? presenceInfo.lastSeen.toDate() : new Date(presenceInfo.lastSeen.seconds * 1000);
-        
-        return lastSeenDate.getTime() > ninetySecondsAgo;
-    });
-  }, [presenceData, allUsers, user]);
-
-  const offlineStudents = useMemo(() => {
-    if (!user || user.role !== 'teacher' || !user.classes) return [];
-    
-    const myClassCodes = new Set(user.classes);
-    const allMyStudents = allUsers.filter(p => 
-        p.role === 'student' && p.classCode && myClassCodes.has(p.classCode)
-    );
-
-    const onlineStudentNames = new Set(onlineStudents.map(s => s.name));
-
-    return allMyStudents
-        .filter(s => !onlineStudentNames.has(s.name))
-        .sort((a,b) => a.name.localeCompare(b.name));
-  }, [allUsers, onlineStudents, user]);
-
-  // --- Teacher Actions Implementation ---
   const createClass = useCallback(async (className: string): Promise<{ status: 'success' | 'error' | 'duplicate_name'; classCode?: string; message?: string }> => {
     if (!user || user.role !== 'teacher') return { status: 'error', message: 'Apenas professores podem criar turmas.' };
     
@@ -254,7 +258,6 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     let isUnique = false;
     while (!isUnique) {
         newClassCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-        // FIX: Switched to v8 syntax
         const existingClass = await db.doc(`classes/${newClassCode}`).get();
         if (!existingClass.exists) {
             isUnique = true;
@@ -267,7 +270,6 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         teacherName: user.name,
     };
     
-    // FIX: Switched to v8 syntax
     await db.doc(`classes/${newClassCode}`).set(newClass);
     await db.doc(`users/${user.name}`).update({
       classes: firebase.firestore.FieldValue.arrayUnion(newClassCode)
@@ -282,15 +284,13 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const batch = db.batch();
 
     try {
-        // 1. Find and delete students and their presence data
         const studentsQuery = db.collection('users').where('classCode', '==', classCode);
         const studentsSnapshot = await studentsQuery.get();
         studentsSnapshot.forEach(doc => {
             batch.delete(doc.ref);
-            batch.delete(db.doc(`presence/${doc.id}`));
+            rtdb.ref(`status/${doc.id}`).remove();
         });
         
-        // 2. Find and delete associated Adedonha sessions and their children
         const sessionsQuery = db.collection('adedonhaSessions').where('classCode', '==', classCode);
         const sessionsSnapshot = await sessionsQuery.get();
         for (const sessionDoc of sessionsSnapshot.docs) {
@@ -305,7 +305,6 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             batch.delete(sessionDoc.ref);
         }
 
-        // 3. Delete associated challenges for other games
         const passwordChallengesQuery = db.collection('password_challenges').where('classCode', '==', classCode);
         const passwordSnapshot = await passwordChallengesQuery.get();
         passwordSnapshot.forEach(doc => batch.delete(doc.ref));
@@ -318,15 +317,12 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         const garrafasSnapshot = await garrafasChallengesQuery.get();
         garrafasSnapshot.forEach(doc => batch.delete(doc.ref));
 
-        // 4. Remove class from teacher's list
         const teacherRef = db.doc(`users/${user.name}`);
         batch.update(teacherRef, { classes: firebase.firestore.FieldValue.arrayRemove(classCode) });
 
-        // 5. Delete class document itself
         const classRef = db.doc(`classes/${classCode}`);
         batch.delete(classRef);
 
-        // 6. Commit all operations
         await batch.commit();
     } catch (error) {
         console.error("Erro ao excluir turma e seus dados associados:", error);
@@ -335,22 +331,20 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   
   const deleteStudent = useCallback(async (studentName: string) => {
     if (!user || user.role !== 'teacher') return;
-    // FIX: Switched to v8 syntax
     const batch = db.batch();
     const studentRef = db.doc(`users/${studentName}`);
-    const presenceRef = db.doc(`presence/${studentName}`);
 
     batch.delete(studentRef);
-    batch.delete(presenceRef);
-    
     await batch.commit();
+    
+    // Also remove from Realtime DB
+    await rtdb.ref(`status/${studentName}`).remove();
   }, [user]);
 
   const updateStudentPassword = useCallback(async (studentName: string, newPassword: string): Promise<{ status: 'success' | 'error', message?: string }> => {
     if (!user || user.role !== 'teacher') return { status: 'error', message: 'Ação não permitida.' };
     if (!newPassword || newPassword.length < 4) return { status: 'error', message: 'A senha deve ter pelo menos 4 caracteres.' };
 
-    // FIX: Switched to v8 syntax
     const studentRef = db.doc(`users/${studentName}`);
     try {
         await studentRef.update({ password: newPassword });
@@ -368,25 +362,21 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         creatorName: user.name,
         status: 'locked',
     };
-    // FIX: Switched to v8 syntax
     await db.collection('password_challenges').add(newChallenge);
     return { status: 'success' };
   }, [user]);
 
   const updatePasswordChallenge = useCallback(async (id: string, data: any): Promise<{ status: 'success' | 'error', message?: string }> => {
     if (!user || user.role !== 'teacher') return { status: 'error', message: 'Ação não permitida.' };
-    // FIX: Switched to v8 syntax
     await db.doc(`password_challenges/${id}`).update(data);
     return { status: 'success' };
   }, [user]);
 
   const deletePasswordChallenge = useCallback(async (id: string) => {
-    // FIX: Switched to v8 syntax
     await db.doc(`password_challenges/${id}`).delete();
   }, []);
 
   const unlockPasswordChallenge = useCallback(async (id: string) => {
-    // FIX: Switched to v8 syntax
     await db.doc(`password_challenges/${id}`).update({
         status: 'unlocked',
         unlockedTimestamp: firebase.firestore.FieldValue.serverTimestamp()
@@ -394,7 +384,6 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
   
   const lockPasswordChallenge = useCallback(async (id: string) => {
-    // FIX: Switched to v8 syntax
     await db.doc(`password_challenges/${id}`).update({
         status: 'locked'
     });
@@ -405,7 +394,6 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (!challenge) return;
     const students = getStudentsInClass(challenge.classCode);
     const gameId = `${GAME_ID_PASSWORD}_${id}`;
-    // FIX: Switched to v8 syntax
     const batch = db.batch();
     students.forEach(student => {
         if (student.gameStats?.[gameId]) {
@@ -418,19 +406,16 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const createCombinacaoTotalChallenge = useCallback(async (data: any): Promise<{ status: 'success' | 'error', message?: string }> => {
     if (!user || user.role !== 'teacher') return { status: 'error', message: 'Apenas professores podem criar desafios.' };
-    // FIX: Switched to v8 syntax
     const newChallenge = { ...data, creatorName: user.name, status: 'locked', createdAt: firebase.firestore.FieldValue.serverTimestamp() };
     await db.collection('combinacao_total_challenges').add(newChallenge);
     return { status: 'success' };
   }, [user]);
 
   const deleteCombinacaoTotalChallenge = useCallback(async (id: string) => {
-    // FIX: Switched to v8 syntax
     await db.doc(`combinacao_total_challenges/${id}`).delete();
   }, []);
 
   const unlockCombinacaoTotalChallenge = useCallback(async (id: string) => {
-    // FIX: Switched to v8 syntax
      await db.doc(`combinacao_total_challenges/${id}`).update({
         status: 'unlocked',
         unlockedTimestamp: firebase.firestore.FieldValue.serverTimestamp()
@@ -438,7 +423,6 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
   
   const lockCombinacaoTotalChallenge = useCallback(async (id: string) => {
-    // FIX: Switched to v8 syntax
     await db.doc(`combinacao_total_challenges/${id}`).update({ status: 'locked' });
   }, []);
   
@@ -446,7 +430,6 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const challenge = combinacaoTotalChallenges.find(c => c.id === id);
     if (!challenge) return;
     const students = getStudentsInClass(challenge.classCode);
-    // FIX: Switched to v8 syntax
     const batch = db.batch();
     students.forEach(student => {
         const userRef = db.doc(`users/${student.name}`);
@@ -466,7 +449,6 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return acc;
     }, {} as { [key: string]: number });
     
-    // FIX: Switched to v8 syntax
     const newSession = {
         classCode,
         teacherName: user.name,
@@ -482,11 +464,11 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const startAdedonhaRound = useCallback(async (sessionId: string, theme: string, letter: string, duration: number) => {
     if (!activeAdedonhaSession) return;
     const newRoundNumber = activeAdedonhaRound ? activeAdedonhaRound.roundNumber + 1 : 1;
-    // FIX: Switched to v8 syntax
     const newRound: Omit<AdedonhaRound, 'id'> = {
         sessionId, roundNumber: newRoundNumber, theme, duration,
         status: 'playing',
         startTime: firebase.firestore.FieldValue.serverTimestamp(),
+        submittedBy: [],
     };
     if (activeAdedonhaSession.type === 'simples') {
         newRound.letter = letter;
@@ -498,13 +480,11 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [activeAdedonhaSession, activeAdedonhaRound]);
 
   const endAdedonhaRoundForScoring = useCallback(async (roundId: string) => {
-    // FIX: Switched to v8 syntax
     const roundRef = db.doc(`adedonhaRounds/${roundId}`);
     await roundRef.update({ status: 'scoring' });
   }, []);
 
   const updateSubmissionScore = useCallback(async (subId: string, score: number) => {
-    // FIX: Switched to v8 syntax
     await db.doc(`adedonhaSubmissions/${subId}`).update({ finalScore: score, isValid: score > 0 });
   }, []);
 
@@ -534,7 +514,6 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
 
   const endAdedonhaSession = useCallback(async (sessionId: string) => {
-    // FIX: Switched to v8 syntax
     await db.doc(`adedonhaSessions/${sessionId}`).update({ status: 'finished' });
   }, []);
   
@@ -563,22 +542,18 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [user]);
 
-  // --- Garrafas Actions ---
   const createGarrafasChallenge = useCallback(async (data: any): Promise<{ status: 'success' | 'error', message?: string }> => {
     if (!user || user.role !== 'teacher') return { status: 'error', message: 'Apenas professores podem criar desafios.' };
-    // FIX: Switched to v8 syntax
     const newChallenge = { ...data, creatorName: user.name, status: 'locked', createdAt: firebase.firestore.FieldValue.serverTimestamp() };
     await db.collection('garrafas_challenges').add(newChallenge);
     return { status: 'success' };
   }, [user]);
 
   const deleteGarrafasChallenge = useCallback(async (id: string) => {
-    // FIX: Switched to v8 syntax
     await db.doc(`garrafas_challenges/${id}`).delete();
   }, []);
 
   const unlockGarrafasChallenge = useCallback(async (id: string) => {
-    // FIX: Switched to v8 syntax
      await db.doc(`garrafas_challenges/${id}`).update({
         status: 'unlocked',
         unlockedTimestamp: firebase.firestore.FieldValue.serverTimestamp()
@@ -589,7 +564,6 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const challenge = garrafasChallenges.find(c => c.id === id);
     if (!challenge) return;
     const students = getStudentsInClass(challenge.classCode);
-    // FIX: Switched to v8 syntax
     const batch = db.batch();
     students.forEach(student => {
         const userRef = db.doc(`users/${student.name}`);
@@ -600,61 +574,58 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     await batch.commit();
   }, [garrafasChallenges, getStudentsInClass]);
 
-  // Student Actions
   const submitAdedonhaAnswer = useCallback(async (roundId: string, answer: string): Promise<boolean> => {
     if (!user || user.role !== 'student' || !activeAdedonhaSession || !activeAdedonhaRound) return false;
 
-    if (activeAdedonhaSession.type === 'tapple') {
-        const firstLetter = answer.trim().charAt(0).toUpperCase();
-        if (!firstLetter) return false;
+    const roundRef = db.doc(`adedonhaRounds/${roundId}`);
 
-        const roundRef = db.doc(`adedonhaRounds/${roundId}`);
-        // FIX: Refactored Tapple submission to correctly use Firebase v8 transaction patterns.
-        // The transaction now only handles the atomic check and update of the shared 'usedLetters' resource.
-        // The user's submission document is created/updated separately after the transaction succeeds.
-        try {
-            await db.runTransaction(async (transaction) => {
-                const roundDoc = await transaction.get(roundRef);
-                if (!roundDoc.exists) throw new Error("Round not found");
-                
-                const roundData = roundDoc.data() as AdedonhaRound;
+    try {
+        await db.runTransaction(async (transaction) => {
+            const roundDoc = await transaction.get(roundRef);
+            if (!roundDoc.exists) throw new Error("Round not found");
+            const roundData = roundDoc.data() as AdedonhaRound;
+
+            if (roundData.submittedBy?.includes(user.name)) {
+                // Already submitted
+            } else {
+                 transaction.update(roundRef, {
+                    submittedBy: firebase.firestore.FieldValue.arrayUnion(user.name)
+                });
+            }
+
+            if (activeAdedonhaSession.type === 'tapple') {
+                const firstLetter = answer.trim().charAt(0).toUpperCase();
+                if (!firstLetter) throw new Error("Resposta inválida.");
                 if (roundData.usedLetters?.includes(firstLetter)) {
                     throw new Error("Letter already used by another player.");
                 }
-                
                 const newUsedLetters = [...(roundData.usedLetters || []), firstLetter];
                 transaction.update(roundRef, { usedLetters: newUsedLetters });
-            });
-            
-            // After successfully reserving the letter, create/update the submission.
-            const subsQuery = db.collection('adedonhaSubmissions').where('roundId', '==', roundId).where('studentName', '==', user.name);
-            const subsDocs = await subsQuery.get();
-
-            if (subsDocs.empty) {
-                const newSubRef = db.collection('adedonhaSubmissions').doc();
-                await newSubRef.set({ roundId, studentName: user.name, answer, finalScore: 0, isValid: null });
-            } else {
-                const subRef = subsDocs.docs[0].ref;
-                await subRef.update({ answer });
             }
-            return true;
-        } catch (error) {
-            console.error("Tapple submission transaction failed: ", error);
-            return false;
-        }
-    } else { // 'simples' mode
-        const existingSubmission = adedonhaSubmissions.find(s => s.roundId === roundId && s.studentName === user.name);
-        if (existingSubmission) {
-            await db.doc(`adedonhaSubmissions/${existingSubmission.id}`).update({ answer });
-        } else {
-            const newSubmission: Omit<AdedonhaSubmission, 'id'> = {
+        });
+
+        const subsQuery = db.collection('adedonhaSubmissions')
+                          .where('roundId', '==', roundId)
+                          .where('studentName', '==', user.name)
+                          .limit(1);
+
+        const subsDocs = await subsQuery.get();
+        if (subsDocs.empty) {
+            const newSub: Omit<AdedonhaSubmission, 'id'> = {
                 roundId, studentName: user.name, answer, finalScore: 0, isValid: null
             };
-            await db.collection('adedonhaSubmissions').add(newSubmission);
+            await db.collection('adedonhaSubmissions').add(newSub);
+        } else {
+            const subRef = subsDocs.docs[0].ref;
+            await subRef.update({ answer });
         }
+        
         return true;
+    } catch (error) {
+        console.error("Adedonha submission transaction failed:", error);
+        return false;
     }
-  }, [user, adedonhaSubmissions, activeAdedonhaSession, activeAdedonhaRound]);
+  }, [user, activeAdedonhaSession, activeAdedonhaRound]);
   
   const value: GameDataContextType = {
     allUsers: allUsers,
@@ -666,6 +637,7 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     activeAdedonhaRound: activeAdedonhaRound,
     adedonhaSubmissions: adedonhaSubmissions,
     onlineStudents: onlineStudents,
+    // FIX: Added offlineStudents to the context value.
     offlineStudents: offlineStudents,
     getClassesForTeacher: getClassesForTeacher,
     getStudentsInClass: getStudentsInClass,

@@ -44,7 +44,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({ isOpen, on
                 onClick={onConfirm} 
                 className="px-6 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors"
             >
-                Confirmar Exclusão
+                Confirmar
             </button>
         </div>
       </div>

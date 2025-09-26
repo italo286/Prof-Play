@@ -17,7 +17,7 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
   const { user, logout } = useContext(AuthContext);
   const { 
     getClassesForTeacher, getStudentsInClass, createClass, deleteClass, deleteStudent,
-    onlineStudents: allOnlineStudents, endAllAdedonhaSessions
+    onlineStudents, endAllAdedonhaSessions
   } = useContext(GameDataContext);
 
   const [newClassName, setNewClassName] = useState('');
@@ -50,13 +50,13 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
     } else {
       setStudents([]);
     }
-  }, [selectedClassCode, getStudentsInClass, allOnlineStudents]); // Dependency on allOnlineStudents to refresh on student data changes
+  }, [selectedClassCode, getStudentsInClass, onlineStudents]);
   
   useEffect(() => {
     setSelectedGameView('overview');
   }, [classDetailTab]);
 
-  const onlineInClass = useMemo(() => allOnlineStudents.filter(s => s.classCode === selectedClassCode), [allOnlineStudents, selectedClassCode]);
+  const onlineInClass = useMemo(() => onlineStudents.filter(s => s.classCode === selectedClassCode), [onlineStudents, selectedClassCode]);
   const onlineStudentNames = useMemo(() => new Set(onlineInClass.map(s => s.name)), [onlineInClass]);
   const offlineInClass = useMemo(() => {
     if (!selectedClassCode) return [];
@@ -89,7 +89,6 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
     if (studentToDelete) {
         await deleteStudent(studentToDelete.name);
         setStudentToDelete(null);
-        // Refresh student list after deletion
         if(selectedClassCode) {
             setStudents(getStudentsInClass(selectedClassCode).sort((a, b) => b.xp - a.xp));
         }

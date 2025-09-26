@@ -175,6 +175,7 @@ export interface AdedonhaRound {
   startTime: any; // Firebase Timestamp
   duration: number; // Duration of the round in seconds
   usedLetters?: string[]; // For 'tapple' mode
+  submittedBy?: string[]; // OPTIMIZATION: List of students who have submitted
 }
 
 export interface AdedonhaSession {

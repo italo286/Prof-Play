@@ -3,6 +3,9 @@ import { AuthContext } from '../contexts/AuthContext';
 import { GameDataContext } from '../contexts/GameDataContext';
 import { playSuccessSound } from '../utils/audio';
 import { CountdownTimer } from './CountdownTimer';
+import { db } from '../firebase';
+import type { AdedonhaSubmission } from '../types';
+
 
 const getJsDateFromTimestamp = (timestamp: any): Date | null => {
     if (!timestamp) return null;
@@ -31,7 +34,7 @@ const LetterSpinner: React.FC<{ letter: string, onRevealed: () => void }> = ({ l
 
 export const AdedonhaGame: React.FC<{ onReturnToMenu: () => void }> = ({ onReturnToMenu }) => {
     const { user } = useContext(AuthContext);
-    const { activeAdedonhaSession, activeAdedonhaRound, adedonhaSubmissions, submitAdedonhaAnswer, getStudentsInClass } = useContext(GameDataContext);
+    const { activeAdedonhaSession, activeAdedonhaRound, submitAdedonhaAnswer, getStudentsInClass } = useContext(GameDataContext);
     const [answer, setAnswer] = useState('');
     const [submitted, setSubmitted] = useState(false);
     const [timeUp, setTimeUp] = useState(false);
@@ -68,18 +71,30 @@ export const AdedonhaGame: React.FC<{ onReturnToMenu: () => void }> = ({ onRetur
         setSubmitted(true);
     };
 
-    const mySubmission = useMemo(() => {
-        if (!user || !activeAdedonhaRound) return null;
-        return adedonhaSubmissions.find(s => s.roundId === activeAdedonhaRound?.id && s.studentName === user.name);
-    }, [adedonhaSubmissions, activeAdedonhaRound, user]);
-    
+    // OPTIMIZATION: Check for submission status using the efficient `submittedBy` array on the round document.
+    // This avoids listening to the entire `adedonhaSubmissions` collection for all students.
     useEffect(() => {
-      // Check if user has already submitted in this round
-      if (mySubmission) {
+      const alreadySubmitted = activeAdedonhaRound?.submittedBy?.includes(user?.name || '');
+      if (alreadySubmitted) {
         setSubmitted(true);
-        setAnswer(mySubmission.answer);
+        // If already submitted, do a single read to get the answer text to populate the input.
+        // This is a good trade-off: one read vs a persistent listener.
+        const fetchMyAnswer = async () => {
+            if (user && activeAdedonhaRound) {
+                const q = db.collection('adedonhaSubmissions')
+                            .where('roundId', '==', activeAdedonhaRound.id)
+                            .where('studentName', '==', user.name)
+                            .limit(1);
+                const docSnap = await q.get();
+                if (!docSnap.empty) {
+                    const sub = docSnap.docs[0].data() as AdedonhaSubmission;
+                    setAnswer(sub.answer);
+                }
+            }
+        };
+        fetchMyAnswer();
       }
-    }, [mySubmission]);
+    }, [activeAdedonhaRound, user]);
 
     // --- RENDER LOGIC ---
 
@@ -195,23 +210,7 @@ export const AdedonhaGame: React.FC<{ onReturnToMenu: () => void }> = ({ onRetur
                     
                     <div className="mt-6 w-full bg-slate-700 p-4 rounded-lg">
                         <h3 className="text-lg font-bold text-cyan-300 mb-2">Respostas da Rodada {activeAdedonhaRound.roundNumber}</h3>
-                        <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
-                        {adedonhaSubmissions.map(sub => {
-                            const avatar = avatarMap.get(sub.studentName);
-                            const validationIcon = sub.isValid === true ? 'fa-check-circle text-green-400' : sub.isValid === false ? 'fa-times-circle text-red-400' : 'fa-question-circle text-slate-500';
-                            return (
-                                <div key={sub.id} className="flex justify-between items-center p-2 bg-slate-800 rounded">
-                                    <div className="flex items-center gap-2">
-                                        {avatar && <img src={avatar} alt={`Avatar de ${sub.studentName}`} className="w-8 h-8 rounded-full bg-slate-700"/>}
-                                        <i className={`fas ${validationIcon}`}></i>
-                                        <span className="font-semibold">{sub.studentName}: </span>
-                                        <span className="italic text-slate-300">{sub.answer || "(em branco)"}</span>
-                                    </div>
-                                    <span className="font-bold text-sky-300">{sub.finalScore} pontos</span>
-                                </div>
-                            );
-                        })}
-                        </div>
+                        <p className="text-slate-400 text-sm mb-2">Aguarde o professor atribuir a pontuação final.</p>
                     </div>
                      <footer className="text-center text-sm text-slate-400 mt-8">
                         <p>Desenvolvido por Ítalo Natan – 2025</p>
