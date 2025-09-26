@@ -1,7 +1,7 @@
-import React, { useState, useContext, useEffect, useMemo } from 'react';
-import { AuthContext } from '../contexts/AuthContext';
-import { GameDataContext } from '../contexts/GameDataContext';
-import type { UserProfile, ClassData } from '../types';
+import React, { useState, useContext, useEffect, useMemo, useCallback } from 'react';
+import { AuthContext } from '../../contexts/AuthContext';
+import { GameDataContext } from '../../contexts/GameDataContext';
+import type { UserProfile, ClassData } from '../../types';
 import { ReportModal } from './ReportModal';
 import { ClassReportModal } from './ClassReportModal';
 import { ClassDetailTable } from './teacher/ClassDetailTable';
@@ -12,18 +12,22 @@ import { GarrafasManager } from './teacher/GarrafasManager';
 import { ConfirmationModal } from './ConfirmationModal';
 import { EditStudentModal } from './teacher/EditStudentModal';
 import { ManageStudentsList } from './teacher/ManageStudentsList';
+import { db } from '../../firebase';
+import firebase from 'firebase/compat/app';
+
+const PAGE_SIZE = 25;
 
 export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGames: () => void }> = ({ onReturnToMenu, onAccessGames }) => {
   const { user, logout } = useContext(AuthContext);
   const { 
-    getClassesForTeacher, getStudentsInClass, createClass, deleteClass, deleteStudent,
+    allUsers, getClassesForTeacher, getStudentsInClass, createClass, deleteClass, deleteStudent,
     onlineStudents, endAllAdedonhaSessions
   } = useContext(GameDataContext);
 
   const [newClassName, setNewClassName] = useState('');
   const teacherClasses = user?.name ? getClassesForTeacher(user.name) : [];
   
-  const [students, setStudents] = useState<UserProfile[]>([]);
+  const [studentsForManagement, setStudentsForManagement] = useState<UserProfile[]>([]);
   const [selectedClassCode, setSelectedClassCode] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [isReportModalOpen, setReportModalOpen] = useState(false);
@@ -38,6 +42,20 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
   const [selectedGameView, setSelectedGameView] = useState<'overview' | 'adedonha' | 'password' | 'combination' | 'garrafas'>('overview');
   const [isEndAllModalOpen, setIsEndAllModalOpen] = useState(false);
 
+  // --- Pagination State ---
+  const [rankingStudents, setRankingStudents] = useState<UserProfile[]>([]);
+  const [isLoadingRanking, setIsLoadingRanking] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [lastVisibleDoc, setLastVisibleDoc] = useState<firebase.firestore.QueryDocumentSnapshot | null>(null);
+  const [firstVisibleDoc, setFirstVisibleDoc] = useState<firebase.firestore.QueryDocumentSnapshot | null>(null);
+  const [isLastPage, setIsLastPage] = useState(false);
+  const totalStudentsInClass = useMemo(() => {
+    if (!selectedClassCode) return 0;
+    // Get total count from pre-fetched list in context for UI purposes
+    return getStudentsInClass(selectedClassCode).length;
+  }, [selectedClassCode, allUsers, getStudentsInClass]);
+  // --- End Pagination State ---
+
 
   useEffect(() => {
     if (selectedClassCode) {
@@ -46,12 +64,77 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
         if (b.level !== a.level) return b.level - a.level;
         return b.xp - a.xp;
       });
-      setStudents(sorted);
+      setStudentsForManagement(sorted);
     } else {
-      setStudents([]);
+      setStudentsForManagement([]);
     }
-  }, [selectedClassCode, getStudentsInClass, onlineStudents]);
+  }, [selectedClassCode, getStudentsInClass, onlineStudents, allUsers]);
   
+  const baseRankingQuery = useCallback(() => {
+    if (!selectedClassCode) return null;
+    return db.collection('users')
+      .where('classCode', '==', selectedClassCode)
+      .orderBy('xp', 'desc')
+      .orderBy('name', 'asc'); // Secondary sort for stable order
+  }, [selectedClassCode]);
+
+  const fetchFirstPage = useCallback(async () => {
+    const query = baseRankingQuery();
+    if (!query) return;
+    
+    setIsLoadingRanking(true);
+    try {
+        const snapshot = await query.limit(PAGE_SIZE).get();
+        const newStudents = snapshot.docs.map(doc => doc.data() as UserProfile);
+        setRankingStudents(newStudents);
+        setFirstVisibleDoc(snapshot.docs[0] || null);
+        setLastVisibleDoc(snapshot.docs[snapshot.docs.length - 1] || null);
+        setIsLastPage(snapshot.docs.length < PAGE_SIZE);
+        setCurrentPage(1);
+    } catch (err) { console.error(err); }
+    finally { setIsLoadingRanking(false); }
+  }, [baseRankingQuery]);
+
+  useEffect(() => {
+    if (selectedClassCode && classDetailTab === 'ranking') {
+      fetchFirstPage();
+    }
+  }, [selectedClassCode, classDetailTab, fetchFirstPage]);
+  
+  const fetchNextPage = async () => {
+    const query = baseRankingQuery();
+    if (!query || !lastVisibleDoc) return;
+    
+    setIsLoadingRanking(true);
+    try {
+        const snapshot = await query.startAfter(lastVisibleDoc).limit(PAGE_SIZE).get();
+        const newStudents = snapshot.docs.map(doc => doc.data() as UserProfile);
+        setRankingStudents(newStudents);
+        setFirstVisibleDoc(snapshot.docs[0] || null);
+        setLastVisibleDoc(snapshot.docs[snapshot.docs.length - 1] || null);
+        setIsLastPage(snapshot.docs.length < PAGE_SIZE);
+        setCurrentPage(prev => prev + 1);
+    } catch (err) { console.error(err); }
+    finally { setIsLoadingRanking(false); }
+  };
+  
+  const fetchPrevPage = async () => {
+    const query = baseRankingQuery();
+    if (!query || !firstVisibleDoc) return;
+
+    setIsLoadingRanking(true);
+    try {
+        const snapshot = await query.endBefore(firstVisibleDoc).limitToLast(PAGE_SIZE).get();
+        const newStudents = snapshot.docs.map(doc => doc.data() as UserProfile);
+        setRankingStudents(newStudents);
+        setFirstVisibleDoc(snapshot.docs[0] || null);
+        setLastVisibleDoc(snapshot.docs[snapshot.docs.length - 1] || null);
+        setIsLastPage(false); // Can't be last page if we went back
+        setCurrentPage(prev => prev - 1);
+    } catch(err) { console.error(err); }
+    finally { setIsLoadingRanking(false); }
+  };
+
   useEffect(() => {
     setSelectedGameView('overview');
   }, [classDetailTab]);
@@ -90,7 +173,7 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
         await deleteStudent(studentToDelete.name);
         setStudentToDelete(null);
         if(selectedClassCode) {
-            setStudents(getStudentsInClass(selectedClassCode).sort((a, b) => b.xp - a.xp));
+            setStudentsForManagement(getStudentsInClass(selectedClassCode).sort((a, b) => b.xp - a.xp));
         }
     }
   };
@@ -136,7 +219,7 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center p-4 text-slate-200 select-none">
         <ReportModal isOpen={isReportModalOpen} onClose={() => setReportModalOpen(false)} student={selectedStudent} />
-        <ClassReportModal isOpen={isClassReportModalOpen} onClose={() => setClassReportModalOpen(false)} students={students} className={selectedClass.className} />
+        <ClassReportModal isOpen={isClassReportModalOpen} onClose={() => setClassReportModalOpen(false)} students={studentsForManagement} className={selectedClass.className} />
         <ConfirmationModal
             isOpen={!!studentToDelete}
             onClose={() => setStudentToDelete(null)}
@@ -180,7 +263,7 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
                     <i className="fas fa-trophy mr-2"></i>Ranking da Turma
                 </button>
                 <button onClick={() => setClassDetailTab('gerenciar')} className={`px-4 py-3 font-semibold text-base transition-colors ${classDetailTab === 'gerenciar' ? 'text-sky-400 border-b-2 border-sky-400' : 'text-slate-400 hover:text-white'}`}>
-                    <i className="fas fa-users-cog mr-2"></i>Gerenciar Alunos ({students.length})
+                    <i className="fas fa-users-cog mr-2"></i>Gerenciar Alunos ({studentsForManagement.length})
                 </button>
                 <button onClick={() => setClassDetailTab('atividade')} className={`px-4 py-3 font-semibold text-base transition-colors ${classDetailTab === 'atividade' ? 'text-sky-400 border-b-2 border-sky-400' : 'text-slate-400 hover:text-white'}`}>
                     <i className="fas fa-signal mr-2"></i>Atividade
@@ -192,13 +275,24 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
 
             <main>
               {classDetailTab === 'ranking' && (
-                  students.length > 0 
-                    ? <ClassDetailTable students={students} onViewReport={handleViewStudentReport} />
+                  rankingStudents.length > 0 
+                    ? <ClassDetailTable 
+                        students={rankingStudents} 
+                        onViewReport={handleViewStudentReport}
+                        currentPage={currentPage}
+                        pageSize={PAGE_SIZE}
+                        totalStudents={totalStudentsInClass}
+                        onNextPage={fetchNextPage}
+                        onPrevPage={fetchPrevPage}
+                        isFirstPage={currentPage === 1}
+                        isLastPage={isLastPage}
+                        isLoading={isLoadingRanking}
+                      />
                     : <p className="text-slate-400 text-center mt-8 py-16">Nenhum aluno nesta turma ainda. Compartilhe o código da turma!</p>
               )}
               {classDetailTab === 'gerenciar' && (
-                  students.length > 0 
-                    ? <ManageStudentsList students={students} onDeleteStudent={setStudentToDelete} onEditStudent={setStudentToEdit} onlineStudentNames={onlineStudentNames}/>
+                  studentsForManagement.length > 0 
+                    ? <ManageStudentsList students={studentsForManagement} onDeleteStudent={setStudentToDelete} onEditStudent={setStudentToEdit} onlineStudentNames={onlineStudentNames}/>
                     : <p className="text-slate-400 text-center mt-8 py-16">Nenhum aluno para gerenciar.</p>
               )}
                {classDetailTab === 'atividade' && (

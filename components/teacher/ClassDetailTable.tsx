@@ -96,47 +96,91 @@ const StudentRow: React.FC<StudentRowProps> = React.memo(({ student, rank, onVie
     );
 });
 
-
 interface ClassDetailTableProps {
     students: UserProfile[];
     onViewReport: (student: UserProfile) => void;
+    currentPage: number;
+    pageSize: number;
+    totalStudents: number;
+    onNextPage: () => void;
+    onPrevPage: () => void;
+    isFirstPage: boolean;
+    isLastPage: boolean;
+    isLoading: boolean;
 }
 
-export const ClassDetailTable: React.FC<ClassDetailTableProps> = ({ students, onViewReport }) => {
+export const ClassDetailTable: React.FC<ClassDetailTableProps> = ({ 
+    students, onViewReport, currentPage, pageSize, totalStudents,
+    onNextPage, onPrevPage, isFirstPage, isLastPage, isLoading
+}) => {
+    const totalPages = Math.ceil(totalStudents / pageSize);
+    const startStudentNum = (currentPage - 1) * pageSize + 1;
+    const endStudentNum = startStudentNum + students.length - 1;
+
     return (
-        <div className="overflow-x-auto relative shadow-md sm:rounded-lg" style={{ maxHeight: 'calc(100vh - 240px)'}}>
-            <table className="w-full text-sm text-left text-slate-300">
-                <thead className="text-xs text-sky-300 uppercase bg-slate-900/95 backdrop-blur-sm sticky top-0 z-30">
-                    <tr>
-                        <th scope="col" rowSpan={2} className="p-3 sticky left-0 top-0 z-20 bg-slate-900/95">Aluno</th>
-                        <th scope="col" rowSpan={2} className="p-3 text-center">Nível</th>
-                        <th scope="col" rowSpan={2} className="p-3 text-center">XP</th>
-                        {gameIdsInOrder.map(gameId => (
-                            <th key={gameId} scope="colgroup" colSpan={2} className="p-3 text-center border-l border-slate-700">{getGameName(gameId)}</th>
-                        ))}
-                        <th scope="col" rowSpan={2} className="p-3 text-center border-l border-slate-700">Medalhas</th>
-                        <th scope="col" rowSpan={2} className="p-3 text-center border-l border-slate-700">Relatório</th>
-                    </tr>
-                    <tr>
-                        {gameIdsInOrder.map(gameId => (
-                            <React.Fragment key={`${gameId}-stats`}>
-                                <th scope="col" className="p-2 text-center text-green-400 border-l border-slate-700 sticky top-[41px] z-10 bg-slate-900/95" title="Acertos">A</th>
-                                <th scope="col" className="p-2 text-center text-red-400 sticky top-[41px] z-10 bg-slate-900/95" title="Erros">E</th>
-                            </React.Fragment>
-                        ))}
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-700">
-                    {students.map((student, index) => (
-                        <StudentRow 
-                            key={student.name}
-                            student={student}
-                            rank={index}
-                            onViewReport={onViewReport}
-                        />
-                    ))}
-                </tbody>
-            </table>
+        <div>
+            <div className="overflow-x-auto relative shadow-md sm:rounded-lg" style={{ maxHeight: 'calc(100vh - 300px)'}}>
+                <table className="w-full text-sm text-left text-slate-300">
+                    <thead className="text-xs text-sky-300 uppercase bg-slate-900/95 backdrop-blur-sm sticky top-0 z-30">
+                        <tr>
+                            <th scope="col" rowSpan={2} className="p-3 sticky left-0 top-0 z-20 bg-slate-900/95">Aluno</th>
+                            <th scope="col" rowSpan={2} className="p-3 text-center">Nível</th>
+                            <th scope="col" rowSpan={2} className="p-3 text-center">XP</th>
+                            {gameIdsInOrder.map(gameId => (
+                                <th key={gameId} scope="colgroup" colSpan={2} className="p-3 text-center border-l border-slate-700">{getGameName(gameId)}</th>
+                            ))}
+                            <th scope="col" rowSpan={2} className="p-3 text-center border-l border-slate-700">Medalhas</th>
+                            <th scope="col" rowSpan={2} className="p-3 text-center border-l border-slate-700">Relatório</th>
+                        </tr>
+                        <tr>
+                            {gameIdsInOrder.map(gameId => (
+                                <React.Fragment key={`${gameId}-stats`}>
+                                    <th scope="col" className="p-2 text-center text-green-400 border-l border-slate-700 sticky top-[41px] z-10 bg-slate-900/95" title="Acertos">A</th>
+                                    <th scope="col" className="p-2 text-center text-red-400 sticky top-[41px] z-10 bg-slate-900/95" title="Erros">E</th>
+                                </React.Fragment>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-700">
+                        {isLoading ? (
+                            <tr><td colSpan={100} className="text-center p-8"><i className="fas fa-spinner fa-spin text-2xl text-sky-400"></i></td></tr>
+                        ) : (
+                            students.map((student, index) => (
+                                <StudentRow 
+                                    key={student.name}
+                                    student={student}
+                                    rank={(currentPage - 1) * pageSize + index}
+                                    onViewReport={onViewReport}
+                                />
+                            ))
+                        )}
+                    </tbody>
+                </table>
+            </div>
+            {totalStudents > 0 && (
+                 <div className="flex justify-between items-center p-4 bg-slate-900/80 sticky bottom-0 rounded-b-lg">
+                    <span className="text-sm text-slate-400">
+                        Exibindo {startStudentNum}–{endStudentNum} de {totalStudents}
+                    </span>
+                    <div className="flex items-center gap-4">
+                        <button 
+                            onClick={onPrevPage} 
+                            disabled={isFirstPage || isLoading}
+                            className="px-4 py-2 bg-slate-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-600"
+                        >
+                           <i className="fas fa-arrow-left mr-2"></i> Anterior
+                        </button>
+                        <span className="font-semibold">Página {currentPage} de {totalPages}</span>
+                        <button 
+                            onClick={onNextPage} 
+                            disabled={isLastPage || isLoading}
+                            className="px-4 py-2 bg-slate-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-600"
+                        >
+                            Próximo <i className="fas fa-arrow-right ml-2"></i>
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
