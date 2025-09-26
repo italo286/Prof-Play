@@ -6,7 +6,7 @@ interface XadrezTriangulosGameProps {
   onReturnToMenu: () => void;
 }
 
-const BOARD_RADIUS = 5;
+const BOARD_RADIUS = 3; // Reduced from 5 to 3 for a 4-pin side
 const TOTAL_PIECES = 15;
 
 const PLAYER_COLORS: Record<PlayerColor, { primary: string; secondary: string; name: string }> = {
@@ -64,9 +64,11 @@ export const XadrezTriangulosGame: React.FC<XadrezTriangulosGameProps> = ({ onRe
 
   const findNewlyFormedTriangles = useCallback((newLine: Line, existingLines: Line[], existingTriangles: ClaimedTriangle[]): ClaimedTriangle[] => {
     const { from, to } = newLine;
+    
     const fromNeighbors = getNeighbors(from);
     const toNeighbors = getNeighbors(to);
     const commonNeighbors = fromNeighbors.filter(n => toNeighbors.includes(n));
+    
     const newTriangles: ClaimedTriangle[] = [];
     const lineExists = (p1: string, p2: string) => existingLines.some(l => (l.from === p1 && l.to === p2) || (l.from === p2 && l.to === p1));
     const triangleExists = (id: string) => existingTriangles.some(t => t.id === id);
