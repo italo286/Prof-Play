@@ -305,9 +305,6 @@ export const DescubraASenhaGame: React.FC<DescubraASenhaGameProps> = ({ onReturn
                     <p className="text-center text-slate-400 py-8">Nenhum desafio de senha para sua turma no momento.</p>
                 )}
             </div>
-            <footer className="text-center text-sm text-slate-400 mt-8">
-                <p>Desenvolvido por Ítalo Natan – 2025</p>
-            </footer>
         </div>
       </div>
     );
@@ -318,9 +315,6 @@ export const DescubraASenhaGame: React.FC<DescubraASenhaGameProps> = ({ onReturn
          <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-slate-200">
             <div className="relative bg-slate-800 shadow-2xl rounded-xl p-6 md:p-8 w-full max-w-2xl">
                  <CompletionRankingScreen challenge={selectedChallenge} onReturnToMenu={resetGame} />
-                 <footer className="text-center text-sm text-slate-400 mt-8">
-                    <p>Desenvolvido por Ítalo Natan – 2025</p>
-                </footer>
             </div>
         </div>
       )
@@ -355,10 +349,6 @@ export const DescubraASenhaGame: React.FC<DescubraASenhaGameProps> = ({ onReturn
             />
             
             <GuessHistory guesses={guesses} />
-
-            <footer className="text-center text-sm text-slate-400 mt-8">
-                <p>Desenvolvido por Ítalo Natan – 2025</p>
-            </footer>
         </div>
     </div>
   );

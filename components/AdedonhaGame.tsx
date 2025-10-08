@@ -108,9 +108,6 @@ export const AdedonhaGame: React.FC<{ onReturnToMenu: () => void }> = ({ onRetur
                     <i className="fas fa-couch text-5xl text-sky-400 mb-4 animate-pulse"></i>
                     <h1 className="text-2xl font-bold">Lobby da Adedonha Simples</h1>
                     <p className="text-slate-300 mt-2">Aguardando o professor iniciar o jogo...</p>
-                    <footer className="text-center text-sm text-slate-400 mt-8">
-                        <p>Desenvolvido por Ítalo Natan – 2025</p>
-                    </footer>
                 </div>
             </div>
         );
@@ -145,9 +142,6 @@ export const AdedonhaGame: React.FC<{ onReturnToMenu: () => void }> = ({ onRetur
                             })}
                         </div>
                     </div>
-                    <footer className="text-center text-sm text-slate-400 mt-8">
-                        <p>Desenvolvido por Ítalo Natan – 2025</p>
-                    </footer>
                 </div>
              </div>
          );
@@ -189,9 +183,6 @@ export const AdedonhaGame: React.FC<{ onReturnToMenu: () => void }> = ({ onRetur
                         </form>
                       )
                     )}
-                    <footer className="text-center text-sm text-slate-400 mt-8">
-                        <p>Desenvolvido por Ítalo Natan – 2025</p>
-                    </footer>
                 </div>
             </div>
         );
@@ -212,9 +203,6 @@ export const AdedonhaGame: React.FC<{ onReturnToMenu: () => void }> = ({ onRetur
                         <h3 className="text-lg font-bold text-cyan-300 mb-2">Respostas da Rodada {activeAdedonhaRound.roundNumber}</h3>
                         <p className="text-slate-400 text-sm mb-2">Aguarde o professor atribuir a pontuação final.</p>
                     </div>
-                     <footer className="text-center text-sm text-slate-400 mt-8">
-                        <p>Desenvolvido por Ítalo Natan – 2025</p>
-                    </footer>
                 </div>
             </div>
         );

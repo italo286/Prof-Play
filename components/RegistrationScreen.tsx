@@ -197,10 +197,6 @@ export const RegistrationScreen: React.FC = () => {
                 </header>
 
                 {mode === 'login' ? renderLoginForm() : renderRegisterForm()}
-
-                 <footer className="text-center text-sm text-slate-400 mt-10">
-                    <p>Desenvolvido por Ítalo Natan - 2025</p>
-                </footer>
             </div>
         </div>
     );

@@ -339,9 +339,6 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
                 {copyMessage}
             </div>
         )}
-        <footer className="text-center text-sm text-slate-400 pt-8">
-            <p>Desenvolvido por Ítalo Natan - 2025</p>
-        </footer>
       </div>
     );
   }
@@ -430,10 +427,6 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
                 </div>
             </div>
         </main>
-
-        <footer className="text-center text-sm text-slate-400 pt-8">
-            <p>Desenvolvido por Ítalo Natan - 2025</p>
-        </footer>
       </div>
     </div>
   );

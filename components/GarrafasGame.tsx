@@ -97,15 +97,17 @@ const GameView: React.FC<{ challenge: GarrafasChallenge, onBack: () => void }> =
     const [attempts, setAttempts] = useState(0);
 
     const myStat = useMemo(() => user?.garrafasStats?.find(s => s.challengeId === challenge.id), [user, challenge.id]);
-    const isComplete = myStat?.isComplete || false;
+
+    if (myStat?.isComplete) {
+        return <CompletionScreen challenge={challenge} onBack={onBack} />;
+    }
 
     const handleBottleClick = (index: number) => {
-        if (isComplete) return;
         if (selectedIndex === null) {
             setSelectedIndex(index);
         } else {
             if (selectedIndex === index) {
-                setSelectedIndex(null);
+                setSelectedIndex(null); // Deselect
                 return;
             }
             const newOrder = [...currentOrder];
@@ -114,38 +116,28 @@ const GameView: React.FC<{ challenge: GarrafasChallenge, onBack: () => void }> =
             setSelectedIndex(null);
         }
     };
-    
+
     const handleCheck = () => {
-        if (isComplete) return;
+        const currentAttempts = attempts + 1;
+        setAttempts(currentAttempts);
 
-        const newAttempts = attempts + 1;
-        setAttempts(newAttempts);
-
-        const isCorrect = arraysEqual(currentOrder, challenge.correctOrder);
-        
-        if (isCorrect) {
+        if (arraysEqual(currentOrder, challenge.correctOrder)) {
             playSuccessSound();
-            finalizeGarrafasChallenge(challenge.id, newAttempts);
+            finalizeGarrafasChallenge(challenge.id, currentAttempts);
         } else {
             playErrorSound();
-            let correctCount = 0;
-            for (let i = 0; i < currentOrder.length; i++) {
-                if (currentOrder[i] === challenge.correctOrder[i]) {
-                    correctCount++;
-                }
-            }
-            setMessage(`${correctCount} garrafa(s) está(ão) na posição correta. Continue tentando!`);
+            setMessage('Sequência incorreta. Tente novamente!');
             setMessageType('error');
         }
     };
 
-    if (isComplete) {
-        return <CompletionScreen challenge={challenge} onBack={onBack} />;
-    }
-
     return (
-        <div className="w-full max-w-2xl flex flex-col items-center">
-            <div className="grid grid-cols-6 gap-2 md:gap-4 mb-6">
+        <div className="w-full max-w-lg flex flex-col items-center animate-fade-in">
+            <p className="text-slate-300 mb-4 text-center">Organize as garrafas na sequência correta. Clique em duas garrafas para trocar suas posições.</p>
+            
+            {message && <MessageDisplay message={message} type={messageType} />}
+
+            <div className="grid grid-cols-6 gap-2 md:gap-4 my-4 w-full">
                 {currentOrder.map((bottleIndex, i) => (
                     <div key={i} onClick={() => handleBottleClick(i)}
                          className={`p-2 rounded-lg cursor-pointer transition-all ${selectedIndex === i ? 'bg-sky-500 scale-110 shadow-lg' : 'bg-slate-700/50 hover:bg-slate-600'}`}>
@@ -153,11 +145,14 @@ const GameView: React.FC<{ challenge: GarrafasChallenge, onBack: () => void }> =
                     </div>
                 ))}
             </div>
-            {message && <MessageDisplay message={message} type={messageType} />}
-            <button onClick={handleCheck} disabled={isComplete} className="mt-4 px-8 py-3 bg-green-600 text-white font-bold rounded-lg shadow-md hover:bg-green-700 disabled:bg-slate-500">Verificar</button>
+
+            <button onClick={handleCheck} className="px-8 py-3 bg-sky-600 text-white font-bold rounded-lg shadow-md hover:bg-sky-700">
+                Verificar Sequência
+            </button>
         </div>
     );
 };
+
 
 export const GarrafasGame: React.FC<{ onReturnToMenu: () => void }> = ({ onReturnToMenu }) => {
     const { user } = useContext(AuthContext);
@@ -168,47 +163,43 @@ export const GarrafasGame: React.FC<{ onReturnToMenu: () => void }> = ({ onRetur
 
     const availableChallenges = garrafasChallenges
         .filter(c => c.classCode === user.classCode && c.status === 'unlocked')
-        .filter(c => !user.garrafasStats?.some(s => s.challengeId === c.id && s.isComplete));
+        .filter(c => {
+            const stat = user.garrafasStats?.find(s => s.challengeId === c.id);
+            return !stat || !stat.isComplete;
+        });
 
-    if (!selectedChallenge) {
-        return (
-             <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-slate-200">
-                <div className="relative bg-slate-800 shadow-2xl rounded-xl p-6 md:p-8 w-full max-w-2xl">
-                    <button onClick={onReturnToMenu} className="absolute top-4 left-4 text-slate-400 hover:text-sky-400 p-2 rounded-lg hover:bg-slate-700">
-                        <i className="fas fa-arrow-left mr-2"></i>Voltar
-                    </button>
-                    <header className="text-center mb-6">
-                        <h1 className="text-3xl font-bold text-sky-400">Jogo das Garrafas</h1>
-                        <p className="text-slate-300 mt-2">Selecione um desafio para começar a ordenar.</p>
-                    </header>
-                    <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
-                        {availableChallenges.length > 0 ? availableChallenges.map(c => (
-                            <div key={c.id} onClick={() => setSelectedChallenge(c)} className="p-4 bg-slate-700 rounded-lg cursor-pointer hover:bg-sky-900/50 border-2 border-transparent hover:border-sky-600">
-                                <h2 className="font-bold text-lg text-sky-300">{c.title}</h2>
-                            </div>
-                        )) : <p className="text-center text-slate-400 py-8">Nenhum desafio ativo para sua turma.</p>}
-                    </div>
-                    <footer className="text-center text-sm text-slate-400 mt-8">
-                        <p>Desenvolvido por Ítalo Natan – 2025</p>
-                    </footer>
-                </div>
-            </div>
-        );
-    }
-    
+    const resetGame = () => {
+        setSelectedChallenge(null);
+    };
+
     return (
         <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-slate-200">
-            <div className="relative bg-slate-800 shadow-2xl rounded-xl p-6 md:p-8 w-full max-w-3xl">
-                <button onClick={() => setSelectedChallenge(null)} className="absolute top-4 left-4 text-slate-400 hover:text-sky-400 p-2 rounded-lg hover:bg-slate-700">
-                    <i className="fas fa-arrow-left mr-2"></i>Voltar
+            <div className="relative bg-slate-800 shadow-2xl rounded-xl p-6 md:p-8 w-full max-w-2xl">
+                <button onClick={selectedChallenge ? resetGame : onReturnToMenu} className="absolute top-4 left-4 text-slate-400 hover:text-sky-400 transition-colors z-10 flex items-center p-2 rounded-lg hover:bg-slate-700">
+                    <i className="fas fa-arrow-left mr-2"></i>
+                    <span>{selectedChallenge ? 'Voltar aos Desafios' : 'Menu Principal'}</span>
                 </button>
                 <header className="text-center mb-6">
-                    <h1 className="text-3xl font-bold text-sky-400">{selectedChallenge.title}</h1>
+                    <h1 className="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-sky-500 to-cyan-400">
+                        {selectedChallenge ? selectedChallenge.title : 'Jogo das Garrafas'}
+                    </h1>
                 </header>
-                <GameView challenge={selectedChallenge} onBack={() => setSelectedChallenge(null)} />
-                <footer className="text-center text-sm text-slate-400 mt-8">
-                    <p>Desenvolvido por Ítalo Natan – 2025</p>
-                </footer>
+
+                {selectedChallenge ? (
+                    <GameView challenge={selectedChallenge} onBack={resetGame} />
+                ) : (
+                    <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
+                        {availableChallenges.length > 0 ? availableChallenges.map(challenge => (
+                            <div key={challenge.id} onClick={() => setSelectedChallenge(challenge)} 
+                                className={`p-4 rounded-lg cursor-pointer transition-all border-2 bg-slate-700 border-transparent hover:bg-sky-900/50 hover:border-sky-600`}>
+                                <h2 className="font-bold text-lg text-sky-300">{challenge.title}</h2>
+                                <p className="text-sm text-slate-400">Criado por: {challenge.creatorName}</p>
+                            </div>
+                        )) : (
+                            <p className="text-center text-slate-400 py-8">Nenhum desafio de Garrafas para sua turma no momento.</p>
+                        )}
+                    </div>
+                )}
             </div>
         </div>
     );

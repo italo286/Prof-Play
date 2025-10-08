@@ -425,7 +425,7 @@ export const XadrezTriangulosGame: React.FC<XadrezTriangulosGameProps> = ({ onRe
     };
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:items-start">
             <div className="lg:col-span-1 flex flex-col gap-4">
                 <div className="p-4 bg-slate-900/70 rounded-lg">
                     <h2 className="font-bold text-xl text-center mb-2">Peças Restantes</h2>

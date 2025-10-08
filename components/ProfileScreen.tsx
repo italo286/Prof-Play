@@ -168,10 +168,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onReturnToMenu }) 
                 })}
             </div>
         </section>
-
-        <footer className="text-center text-sm text-slate-400 mt-8">
-          <p>Desenvolvido por Ítalo Natan - 2025</p>
-        </footer>
       </div>
     </div>
   );

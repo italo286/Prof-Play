@@ -297,10 +297,6 @@ export const SimetriaPontosGame: React.FC<SimetriaPontosGameProps> = ({ onReturn
             </div>
           </>
         )}
-        
-         <footer className="text-center text-sm text-slate-400 mt-8">
-            <p>Desenvolvido por Ítalo Natan - 2025</p>
-        </footer>
       </div>
     </div>
   );
