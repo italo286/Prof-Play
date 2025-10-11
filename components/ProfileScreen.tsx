@@ -1,4 +1,4 @@
-import React, { useContext, useState, useMemo } from 'react';
+import React, { useContext, useState, useMemo, useEffect } from 'react';
 import { AuthContext } from '../contexts/AuthContext';
 import { ProfileContext } from '../contexts/ProfileContext';
 import { GameDataContext } from '../contexts/GameDataContext';
@@ -84,11 +84,93 @@ const AvatarChangeModal: React.FC<{
     );
 };
 
+const EditUsernameModal: React.FC<{
+    isOpen: boolean;
+    onClose: () => void;
+    currentName: string;
+}> = ({ isOpen, onClose, currentName }) => {
+    const { changeUsername } = useContext(AuthContext);
+    const [newName, setNewName] = useState(currentName);
+    const [isSaving, setIsSaving] = useState(false);
+    const [error, setError] = useState('');
+    const [successMessage, setSuccessMessage] = useState('');
+
+    useEffect(() => {
+        if (isOpen) {
+            setNewName(currentName);
+            setError('');
+            setSuccessMessage('');
+            setIsSaving(false);
+        }
+    }, [isOpen, currentName]);
+    
+    if (!isOpen) return null;
+
+    const handleSave = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSaving(true);
+        setError('');
+        
+        const result = await changeUsername(newName);
+
+        if (result.status === 'success') {
+            setSuccessMessage('Nome de usuário alterado! Você será desconectado. Por favor, faça o login novamente com seu novo nome.');
+            // O logout é tratado dentro de changeUsername, então apenas esperamos o componente ser desmontado.
+        } else {
+            setError(result.message || 'Ocorreu um erro.');
+            setIsSaving(false);
+        }
+    };
+    
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 animate-fade-in-down" onClick={onClose}>
+            <div className="bg-slate-800 shadow-2xl rounded-xl p-6 w-full max-w-md text-center" onClick={e => e.stopPropagation()}>
+                <h2 className="text-2xl font-bold text-sky-400 mb-4">Alterar Nome de Usuário</h2>
+                {successMessage ? (
+                    <div className="text-green-300 p-4">
+                        <i className="fas fa-check-circle text-3xl mb-2"></i>
+                        <p>{successMessage}</p>
+                    </div>
+                ) : (
+                    <form onSubmit={handleSave} className="space-y-4">
+                        <div>
+                            <label htmlFor="new-username" className="block text-sm font-medium text-slate-300 mb-1 text-left">Novo Nome de Usuário</label>
+                            <input
+                                id="new-username"
+                                type="text"
+                                value={newName}
+                                onChange={(e) => setNewName(e.target.value)}
+                                className="w-full p-3 bg-slate-700 text-white rounded-md border-2 border-slate-600 focus:border-sky-500"
+                                required
+                                disabled={isSaving}
+                            />
+                        </div>
+
+                         <p className="text-xs text-yellow-400 bg-yellow-900/40 p-2 rounded-md">
+                            <strong>Atenção:</strong> Mudar seu nome de usuário irá te desconectar de qualquer partida em andamento (Duelos, Adedonha, etc).
+                        </p>
+
+                        {error && <p className="text-red-400 text-sm font-semibold">{error}</p>}
+
+                        <div className="flex gap-4 justify-center pt-2">
+                            <button type="button" onClick={onClose} disabled={isSaving} className="px-6 py-2 bg-slate-600 text-white font-semibold rounded-lg hover:bg-slate-700 disabled:opacity-50">Cancelar</button>
+                            <button type="submit" disabled={isSaving} className="px-6 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:opacity-50">
+                                {isSaving ? <><i className="fas fa-spinner fa-spin mr-2"></i>Salvando...</> : 'Salvar'}
+                            </button>
+                        </div>
+                    </form>
+                )}
+            </div>
+        </div>
+    );
+};
+
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onReturnToMenu }) => {
   const { user } = useContext(AuthContext);
   const { updateUserProfile } = useContext(ProfileContext);
   const [isAvatarModalOpen, setAvatarModalOpen] = useState(false);
+  const [isEditModalOpen, setEditModalOpen] = useState(false);
 
   if (!user) return null;
 
@@ -102,6 +184,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onReturnToMenu }) 
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-slate-200 select-none">
       {isAvatarModalOpen && <AvatarChangeModal user={user} onClose={() => setAvatarModalOpen(false)} onSave={handleAvatarSave} />}
+      <EditUsernameModal isOpen={isEditModalOpen} onClose={() => setEditModalOpen(false)} currentName={user.name} />
+
       <div className="relative bg-slate-800 shadow-2xl rounded-xl p-6 md:p-8 w-full max-w-3xl">
         <button
           onClick={onReturnToMenu}
@@ -132,10 +216,20 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onReturnToMenu }) 
                         </button>
                     )}
                 </div>
+                
+                <div className="flex items-center justify-center gap-3">
+                    <h1 className="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-cyan-400">
+                        {user.name}
+                    </h1>
+                    <button 
+                        onClick={() => setEditModalOpen(true)}
+                        className="text-slate-400 hover:text-sky-400 transition-colors p-2 rounded-full hover:bg-slate-700"
+                        aria-label="Editar nome de usuário"
+                    >
+                        <i className="fas fa-pencil-alt text-lg"></i>
+                    </button>
+                </div>
 
-                <h1 className="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-cyan-400">
-                    {user.name}
-                </h1>
                 {user.role === 'student' && user.classCode && (
                     <p className="text-sm text-slate-400 mt-1">Código da Turma: <span className="font-bold bg-slate-700 px-2 py-1 rounded">{user.classCode}</span></p>
                 )}

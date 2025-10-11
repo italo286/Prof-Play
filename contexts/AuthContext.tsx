@@ -28,6 +28,7 @@ interface AuthContextType {
   login: (name: string, pass: string) => Promise<'success' | 'not_found' | 'wrong_pass'>;
   register: (name: string, pass: string, role: 'student' | 'teacher', classCode?: string, avatar?: string) => Promise<{ status: 'success' | 'user_exists' | 'class_not_found' | 'invalid_role' | 'avatar_taken', message?: string }>;
   logout: () => void;
+  changeUsername: (newName: string) => Promise<{ status: 'success' | 'error', message?: string }>;
 }
 
 export const AuthContext = createContext<AuthContextType>({
@@ -36,6 +37,7 @@ export const AuthContext = createContext<AuthContextType>({
   login: async () => 'not_found',
   register: async () => ({ status: 'invalid_role' }),
   logout: () => {},
+  changeUsername: async () => ({ status: 'error', message: 'Função não implementada.'}),
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -179,8 +181,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user]);
 
+  const changeUsername = useCallback(async (newName: string): Promise<{ status: 'success' | 'error', message?: string }> => {
+    if (!user) return { status: 'error', message: 'Nenhum usuário logado.' };
+    const oldName = user.name;
+    const trimmedNewName = newName.trim();
+
+    if (oldName === trimmedNewName) {
+        return { status: 'error', message: 'O novo nome de usuário é o mesmo que o atual.' };
+    }
+    if (!trimmedNewName) {
+        return { status: 'error', message: 'O nome de usuário não pode ser vazio.' };
+    }
+
+    const newUserRef = db.doc(`users/${trimmedNewName}`);
+    const userExists = await newUserRef.get();
+    if (userExists.exists) {
+        return { status: 'error', message: 'Este nome de usuário já está em uso.' };
+    }
+
+    try {
+        const batch = db.batch();
+        const oldUserRef = db.doc(`users/${oldName}`);
+        const oldUserData = (await oldUserRef.get()).data();
+        if (!oldUserData) {
+             return { status: 'error', message: 'Não foi possível encontrar os dados do usuário atual.' };
+        }
+        
+        // Copia dados antigos para novo doc com nome atualizado
+        batch.set(newUserRef, { ...oldUserData, name: trimmedNewName });
+        
+        // Deleta o doc antigo
+        batch.delete(oldUserRef);
+
+        await batch.commit();
+
+        // Limpa a presença do RTDB para o usuário antigo. O novo será criado no próximo login.
+        await rtdb.ref(`status/${oldName}`).remove();
+        
+        // Faz logout para forçar o re-login com o novo nome
+        logout();
+        
+        return { status: 'success' };
+
+    } catch (e) {
+        console.error("Erro ao mudar o nome de usuário:", e);
+        return { status: 'error', message: 'Ocorreu um erro no servidor ao tentar mudar o nome.' };
+    }
+  }, [user, logout]);
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, changeUsername }}>
       {children}
     </AuthContext.Provider>
   );
