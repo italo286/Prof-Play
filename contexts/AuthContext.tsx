@@ -213,6 +213,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Deleta o doc antigo
         batch.delete(oldUserRef);
 
+        if (user.role === 'teacher') {
+            // Update classes
+            const classesQuery = db.collection('classes').where('teacherName', '==', oldName);
+            const classesSnapshot = await classesQuery.get();
+            classesSnapshot.forEach(doc => {
+                batch.update(doc.ref, { teacherName: trimmedNewName });
+            });
+
+            // Update password_challenges
+            const pwChallengesQuery = db.collection('password_challenges').where('creatorName', '==', oldName);
+            const pwChallengesSnapshot = await pwChallengesQuery.get();
+            pwChallengesSnapshot.forEach(doc => {
+                batch.update(doc.ref, { creatorName: trimmedNewName });
+            });
+            
+            // Update combinacao_total_challenges
+            const comboChallengesQuery = db.collection('combinacao_total_challenges').where('creatorName', '==', oldName);
+            const comboChallengesSnapshot = await comboChallengesQuery.get();
+            comboChallengesSnapshot.forEach(doc => {
+                batch.update(doc.ref, { creatorName: trimmedNewName });
+            });
+            
+            // Update garrafas_challenges
+            const garrafasChallengesQuery = db.collection('garrafas_challenges').where('creatorName', '==', oldName);
+            const garrafasChallengesSnapshot = await garrafasChallengesQuery.get();
+            garrafasChallengesSnapshot.forEach(doc => {
+                batch.update(doc.ref, { creatorName: trimmedNewName });
+            });
+            
+            // Update adedonhaSessions
+            const adedonhaQuery = db.collection('adedonhaSessions').where('teacherName', '==', oldName);
+            const adedonhaSnapshot = await adedonhaQuery.get();
+            adedonhaSnapshot.forEach(doc => {
+                batch.update(doc.ref, { teacherName: trimmedNewName });
+            });
+        }
+
         await batch.commit();
 
         // Limpa a presença do RTDB para o usuário antigo. O novo será criado no próximo login.
