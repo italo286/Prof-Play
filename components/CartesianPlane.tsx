@@ -85,6 +85,37 @@ export const CartesianPlane: React.FC<CartesianPlaneProps> = ({
                     ))}
                 </g>
             );
+        case 'point-move-showcase':
+            if (!hint.fromPoint || !hint.showcasePoints) return null;
+            return (
+                <g>
+                    {hint.showcasePoints.map((p, i) => (
+                        <g key={i}>
+                            <circle cx={toSvgX(p.point.x)} cy={toSvgY(p.point.y)} r={SPECIAL_POINT_RADIUS} className={p.className} />
+                            <line
+                                x1={toSvgX(hint.fromPoint!.x)} y1={toSvgY(hint.fromPoint!.y)}
+                                x2={toSvgX(p.point.x)} y2={toSvgY(p.point.y)}
+                                className="stroke-slate-400 stroke-1 stroke-dashed animate-draw-line"
+                                style={{ animationDelay: `${i * 0.3}s` }}
+                            />
+                        </g>
+                    ))}
+                </g>
+            );
+        case 'point-blink-showcase':
+            if (!hint.fromPoints || !hint.showcasePolylines) return null;
+            return (
+                <g>
+                    {hint.showcasePolylines.map((line, i) => (
+                        <polyline
+                            key={`showcase-line-${i}`}
+                            points={line.points.map(p => `${toSvgX(p.x)},${toSvgY(p.y)}`).join(' ')}
+                            className={`${line.className} fill-none animate-draw-line`}
+                            style={{ animationDelay: `${i * 0.3}s` }}
+                        />
+                    ))}
+                </g>
+            );
         default: return null;
     }
   }

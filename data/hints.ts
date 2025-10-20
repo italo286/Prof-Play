@@ -55,11 +55,15 @@ export const hintsData: { [key: string]: HintContent } = {
             React.createElement(Step, { number: 4 }, React.createElement("strong", null, "Em relação à Origem:"), " as duas coordenadas invertem o sinal (ex: (2, 3) vira (-2, -3)).")
         ],
         simulation: () => {
-            const fromPoint = { x: 3, y: 2 };
+            const fromPoint = { x: 2, y: 3 };
             return {
-                type: 'point-move',
+                type: 'point-move-showcase',
                 fromPoint: fromPoint,
-                point: calculateSymmetricPoint(fromPoint, 'x-axis')
+                showcasePoints: [
+                    { point: calculateSymmetricPoint(fromPoint, 'x-axis'), label: 'Eixo X', className: 'fill-teal-400' },
+                    { point: calculateSymmetricPoint(fromPoint, 'y-axis'), label: 'Eixo Y', className: 'fill-lime-400' },
+                    { point: calculateSymmetricPoint(fromPoint, 'origin'), label: 'Origem', className: 'fill-fuchsia-400' }
+                ]
             };
         }
     },
@@ -72,11 +76,15 @@ export const hintsData: { [key: string]: HintContent } = {
             React.createElement(Step, { number: 4 }, "Clique nos locais corretos para recriar a forma simétrica.")
         ],
         simulation: () => {
-             const fromPoints = [{x: 1, y: 1}, {x: 3, y: 4}];
+             const fromPoints = [{x: 1, y: 2}, {x: 2, y: 4}];
              return {
-                type: 'point-blink',
+                type: 'point-blink-showcase',
                 fromPoints: fromPoints,
-                points: fromPoints.map(p => calculateSymmetricPoint(p, 'y-axis'))
+                showcasePolylines: [
+                    { points: fromPoints.map(p => calculateSymmetricPoint(p, 'x-axis')), label: 'Eixo X', className: 'stroke-teal-400 stroke-2' },
+                    { points: fromPoints.map(p => calculateSymmetricPoint(p, 'y-axis')), label: 'Eixo Y', className: 'stroke-lime-400 stroke-2' },
+                    { points: fromPoints.map(p => calculateSymmetricPoint(p, 'origin')), label: 'Origem', className: 'stroke-fuchsia-400 stroke-2' }
+                ]
             };
         }
     },

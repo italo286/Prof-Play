@@ -53,6 +53,7 @@ export const HintModal: React.FC<HintModalProps> = ({ isOpen, onClose, gameId })
     const specialPoints: { point: Point; className: string; radius?: number; style?: React.CSSProperties }[] = [];
     const polylines = [];
     let exampleCoordinateText: string | null = null;
+    let legendItems: { label: string, colorClass: string }[] = [];
 
     if (cartesianHint.fromPoint) {
         specialPoints.push({ point: cartesianHint.fromPoint, className: 'fill-pink-500' });
@@ -81,6 +82,24 @@ export const HintModal: React.FC<HintModalProps> = ({ isOpen, onClose, gameId })
     } else if (cartesianHint.type === 'point-blink') {
         exampleCoordinateText = 'Exemplo de Simetria';
     }
+    
+    // New Showcase Logic
+    if (cartesianHint.type === 'point-move-showcase' && cartesianHint.showcasePoints) {
+        exampleCoordinateText = null; // Don't show coordinates for showcase
+        legendItems.push({ label: 'Original', colorClass: 'bg-pink-500' });
+        cartesianHint.showcasePoints.forEach(p => {
+            const bgColor = p.className.replace('fill-', 'bg-');
+            legendItems.push({ label: p.label, colorClass: bgColor });
+        });
+    }
+    if (cartesianHint.type === 'point-blink-showcase' && cartesianHint.showcasePolylines) {
+        exampleCoordinateText = null; // Don't show coordinates for showcase
+        legendItems.push({ label: 'Original', colorClass: 'bg-pink-500' });
+        cartesianHint.showcasePolylines.forEach(p => {
+            const bgColor = p.className.replace('stroke-', 'bg-').split(' ')[0];
+            legendItems.push({ label: p.label, colorClass: bgColor });
+        });
+    }
 
 
     return (
@@ -93,8 +112,18 @@ export const HintModal: React.FC<HintModalProps> = ({ isOpen, onClose, gameId })
                 specialPoints={specialPoints}
                 polylines={polylines}
             />
+            {legendItems.length > 0 && (
+                <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-2">
+                    {legendItems.map(item => (
+                        <div key={item.label} className="flex items-center gap-2 text-sm font-medium">
+                            <span className={`w-3 h-3 rounded-full ${item.colorClass}`}></span>
+                            <span>{item.label}</span>
+                        </div>
+                    ))}
+                </div>
+            )}
             {exampleCoordinateText && (
-                <p className="text-sm font-bold text-slate-100 bg-slate-700 px-3 py-1 rounded-full">
+                <p className="text-sm font-bold text-slate-100 bg-slate-700 px-3 py-1 rounded-full mt-2">
                     {exampleCoordinateText}
                 </p>
             )}

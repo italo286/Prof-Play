@@ -72,15 +72,20 @@ export type NotificationItem =
   | { type: 'level'; payload: { from: number; to: number } }
   | { type: 'badge'; payload: Badge };
 
-export type HintType = 'line-draw-to-point' | 'line-draw-from-point' | 'point-move' | 'point-blink';
+export type HintType = 'line-draw-to-point' | 'line-draw-from-point' | 'point-move' | 'point-blink' | 'point-move-showcase' | 'point-blink-showcase';
 
 export interface HintInfo {
   type: HintType;
   point?: Point;
   fromPoint?: Point;
   fromPoints?: Point[];
-  points?: Point[];
+  points?: Point[]; // for point-blink
+
+  // for showcase types
+  showcasePoints?: { point: Point; label: string; className: string }[];
+  showcasePolylines?: { points: Point[]; label: string; className: string }[];
 }
+
 
 export interface GeoHintInfo {
     point: GeoPoint;
