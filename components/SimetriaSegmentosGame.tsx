@@ -76,11 +76,11 @@ export const SimetriaSegmentosGame: React.FC<SimetriaSegmentosGameProps> = ({ on
     return { easy: 2, medium: 3, hard: 4 }[difficulty];
   }, [difficulty]);
   
-  const resetChallengeState = () => {
+  const resetChallengeState = useCallback(() => {
     setUserClickedPoints([]);
     setIsFirstAttempt(true);
     setHintUsedInChallenge(false);
-  };
+  }, []);
   
   const generateChallenge = useCallback((diff: Difficulty) => {
     const numPoints = { easy: 2, medium: 3, hard: 4 }[diff];
@@ -102,7 +102,7 @@ export const SimetriaSegmentosGame: React.FC<SimetriaSegmentosGameProps> = ({ on
     resetChallengeState();
     setUserMessage(`Clique nos pontos para criar a forma simétrica.`);
     setMessageType('info');
-  }, []);
+  }, [resetChallengeState]);
 
   const startGame = useCallback((diff: Difficulty) => {
     setDifficulty(diff);
@@ -144,7 +144,7 @@ export const SimetriaSegmentosGame: React.FC<SimetriaSegmentosGameProps> = ({ on
   }, [difficulty, challengeNumber, gameOver, generateChallenge]); 
   
   const checkAnswer = useCallback(async () => {
-      if (!challenge || !difficulty) return;
+      if (isChecking || !challenge || !difficulty) return;
       const correctSymmetricPoints = challenge.points.map(p => calcSymmetricPoint(p, challenge.symmetry));
       
       const isCorrect = userClickedPoints.length === correctSymmetricPoints.length &&
@@ -182,6 +182,11 @@ export const SimetriaSegmentosGame: React.FC<SimetriaSegmentosGameProps> = ({ on
           });
           
           setTimeout(() => {
+              // Clear the board state before generating the next challenge
+              // to prevent a "flash" of the completed previous challenge.
+              setChallenge(null);
+              setUserClickedPoints([]);
+              
               setIsChecking(false);
               nextChallenge();
           }, 1500);
@@ -199,7 +204,7 @@ export const SimetriaSegmentosGame: React.FC<SimetriaSegmentosGameProps> = ({ on
               setMessageType('info');
           }, 1500);
       }
-  }, [userClickedPoints, challenge, isFirstAttempt, nextChallenge, difficulty]);
+  }, [userClickedPoints, challenge, isFirstAttempt, nextChallenge, difficulty, isChecking]);
 
   useEffect(() => {
     if (userClickedPoints.length === pointsToWin && pointsToWin > 0 && !isChecking) {
@@ -339,7 +344,6 @@ export const SimetriaSegmentosGame: React.FC<SimetriaSegmentosGameProps> = ({ on
               </div>
             )}
 
-            {/* FIX: The variable 'message' was undefined. Replaced with 'userMessage'. */}
             {userMessage && <MessageDisplay message={userMessage} type={messageType} />}
 
             <div className="relative my-6 flex justify-center">
