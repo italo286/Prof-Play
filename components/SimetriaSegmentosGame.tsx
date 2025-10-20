@@ -168,16 +168,18 @@ export const SimetriaSegmentosGame: React.FC<SimetriaSegmentosGameProps> = ({ on
             setSessionStats(s => ({...s, other: s.other + 1}));
           }
           
-          const newCombo = comboCount + 1;
-          const comboBonus = newCombo >= COMBO_THRESHOLD ? Math.min(newCombo - COMBO_THRESHOLD + 2, 5) : 1;
-          const xpGainedForAnimation = (isFirstAttempt ? 15 : 7) * comboBonus;
-          
-          const message = newCombo >= COMBO_THRESHOLD ? `Correto! Combo ${newCombo}x!` : "Correto!";
-          setUserMessage(message);
-          setMessageType('success');
-          
-          setXpAnimation({ amount: xpGainedForAnimation, key: Date.now(), combo: newCombo });
-          setComboCount(newCombo);
+          setComboCount(c => {
+              const newCombo = c + 1;
+              const comboBonus = newCombo >= COMBO_THRESHOLD ? Math.min(newCombo - COMBO_THRESHOLD + 2, 5) : 1;
+              const xpGainedForAnimation = (isFirstAttempt ? 15 : 7) * comboBonus;
+              
+              const message = newCombo >= COMBO_THRESHOLD ? `Correto! Combo ${newCombo}x!` : "Correto!";
+              setUserMessage(message);
+              setMessageType('success');
+              
+              setXpAnimation({ amount: xpGainedForAnimation, key: Date.now(), combo: newCombo });
+              return newCombo;
+          });
           
           setTimeout(() => {
               setIsChecking(false);
@@ -197,7 +199,7 @@ export const SimetriaSegmentosGame: React.FC<SimetriaSegmentosGameProps> = ({ on
               setMessageType('info');
           }, 1500);
       }
-  }, [userClickedPoints, challenge, isFirstAttempt, nextChallenge, comboCount, difficulty]);
+  }, [userClickedPoints, challenge, isFirstAttempt, nextChallenge, difficulty]);
 
   useEffect(() => {
     if (userClickedPoints.length === pointsToWin && pointsToWin > 0) {
