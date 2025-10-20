@@ -70,7 +70,7 @@ const AppContent: React.FC = () => {
 
   if (loading) {
     return (
-        <div className="flex flex-col gap-4 justify-center items-center min-h-screen bg-slate-900">
+        <div className="flex flex-col gap-4 justify-center items-center flex-grow">
             <img src="https://i.ibb.co/bqK98gY/Google-AI-Studio-2025-08-22-T01-43-41-630-Z.png" alt="Logo" className="h-24 w-24 animate-pulse" />
             <div className="text-2xl font-semibold text-sky-400">Carregando...</div>
         </div>
@@ -199,9 +199,14 @@ const App: React.FC = () => {
 
   return (
     <AppProviders>
-      <div className="bg-slate-900 text-slate-200">
+      <div className="bg-slate-900 text-slate-200 min-h-screen flex flex-col">
         <NotificationManager />
-        <AppContent />
+        <main className="flex-grow flex flex-col">
+          <AppContent />
+        </main>
+        <footer className="text-center p-4 text-xs text-slate-500">
+            Desenvolvido por Ítalo Natan Oliveira de Araújo ❤️
+        </footer>
       </div>
     </AppProviders>
   );

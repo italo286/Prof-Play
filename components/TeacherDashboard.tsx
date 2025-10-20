@@ -157,7 +157,7 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
 
   if (!user || user.role !== 'teacher') {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="flex-grow flex items-center justify-center p-4">
         <div className="bg-slate-800 p-8 rounded-lg text-center">
             <p className="text-red-400 text-xl">Acesso negado.</p>
             <button onClick={onReturnToMenu} className="mt-4 px-4 py-2 bg-sky-600 text-white font-semibold rounded-lg hover:bg-sky-700">Voltar ao Menu</button>
@@ -178,7 +178,7 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
   if (selectedClass) {
     const studentsForClassReport = getStudentsInClass(selectedClass.classCode);
     return (
-      <div className="min-h-screen bg-slate-900 flex flex-col items-center p-4 text-slate-200 select-none">
+      <div className="flex-grow flex flex-col items-center p-4 select-none">
         <ReportModal isOpen={isReportModalOpen} onClose={() => setReportModalOpen(false)} student={selectedStudent} />
         <ClassReportModal isOpen={isClassReportModalOpen} onClose={() => setClassReportModalOpen(false)} students={studentsForClassReport} className={selectedClass.className} />
         <ConfirmationModal
@@ -345,7 +345,7 @@ export const TeacherDashboard: React.FC<{ onReturnToMenu: () => void, onAccessGa
 
   // Main Dashboard View (no class selected)
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-slate-200 select-none">
+    <div className="flex-grow flex flex-col items-center justify-center p-4 select-none">
        <ConfirmationModal
             isOpen={!!classToDelete}
             onClose={() => setClassToDelete(null)}

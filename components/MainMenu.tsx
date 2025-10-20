@@ -26,7 +26,7 @@ export const MainMenu: React.FC<MainMenuProps> = ({ onSelectCategory, onShowProf
   const filteredCategories = user.role === 'teacher' ? GAME_CATEGORIES.filter(c => c.id !== 'duelo') : GAME_CATEGORIES;
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-slate-200 select-none">
+    <div className="flex-grow flex flex-col items-center justify-center p-4 select-none">
         <div className="w-full max-w-4xl">
             <header className="text-center mb-8 relative">
                 <div className="flex flex-col items-center justify-center gap-2">

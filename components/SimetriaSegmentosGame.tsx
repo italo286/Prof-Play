@@ -292,7 +292,7 @@ export const SimetriaSegmentosGame: React.FC<SimetriaSegmentosGameProps> = ({ on
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-slate-200 select-none">
+    <div className="flex-grow flex flex-col items-center justify-center p-4 select-none">
       <PlayerStatsModal isOpen={isStatsModalOpen} onClose={() => setStatsModalOpen(false)} />
       <HintModal 
         isOpen={isHintModalOpen}

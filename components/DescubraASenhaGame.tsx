@@ -286,7 +286,7 @@ export const DescubraASenhaGame: React.FC<DescubraASenhaGameProps> = ({ onReturn
         });
 
     return (
-      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-slate-200">
+      <div className="flex-grow flex flex-col items-center justify-center p-4">
         <div className="relative bg-slate-800 shadow-2xl rounded-xl p-6 md:p-8 w-full max-w-2xl">
             <button onClick={onReturnToMenu} className="absolute top-4 left-4 text-slate-400 hover:text-sky-400 transition-colors z-10">
                 <i className="fas fa-arrow-left mr-2"></i>Voltar
@@ -312,7 +312,7 @@ export const DescubraASenhaGame: React.FC<DescubraASenhaGameProps> = ({ onReturn
 
   if (gameOver) {
       return (
-         <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-slate-200">
+         <div className="flex-grow flex flex-col items-center justify-center p-4">
             <div className="relative bg-slate-800 shadow-2xl rounded-xl p-6 md:p-8 w-full max-w-2xl">
                  <CompletionRankingScreen challenge={selectedChallenge} onReturnToMenu={resetGame} />
             </div>
@@ -321,7 +321,7 @@ export const DescubraASenhaGame: React.FC<DescubraASenhaGameProps> = ({ onReturn
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-slate-200">
+    <div className="flex-grow flex flex-col items-center justify-center p-4">
         <div className="relative bg-slate-800 shadow-2xl rounded-xl p-6 md:p-8 w-full max-w-2xl">
             <button onClick={resetGame} className="absolute top-4 left-4 text-slate-400 hover:text-sky-400 p-2 rounded-lg hover:bg-slate-700 z-10">
                 <i className="fas fa-arrow-left mr-2"></i>Voltar aos Desafios

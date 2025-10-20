@@ -100,7 +100,7 @@ export const AdedonhaGame: React.FC<{ onReturnToMenu: () => void }> = ({ onRetur
 
     if (!activeAdedonhaSession) {
         return (
-            <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-slate-200">
+            <div className="flex-grow flex flex-col items-center justify-center p-4">
                 <div className="relative bg-slate-800 shadow-2xl rounded-xl p-8 w-full max-w-md text-center">
                     <button onClick={onReturnToMenu} className="absolute top-4 left-4 text-slate-400 hover:text-sky-400">
                         <i className="fas fa-arrow-left mr-2"></i>Voltar
@@ -115,7 +115,7 @@ export const AdedonhaGame: React.FC<{ onReturnToMenu: () => void }> = ({ onRetur
     
      if (!activeAdedonhaRound || activeAdedonhaRound.status === 'finished') {
          return (
-             <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-slate-200">
+             <div className="flex-grow flex flex-col items-center justify-center p-4">
                 <div className="relative bg-slate-800 shadow-2xl rounded-xl p-8 w-full max-w-lg text-center">
                      <button onClick={onReturnToMenu} className="absolute top-4 left-4 text-slate-400 hover:text-sky-400">
                         <i className="fas fa-arrow-left mr-2"></i>Voltar
@@ -150,7 +150,7 @@ export const AdedonhaGame: React.FC<{ onReturnToMenu: () => void }> = ({ onRetur
     if (activeAdedonhaRound.status === 'playing') {
         const showWaitingMessage = submitted || timeUp;
         return (
-            <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-slate-200">
+            <div className="flex-grow flex flex-col items-center justify-center p-4">
                 <div className="relative bg-slate-800 shadow-2xl rounded-xl p-8 w-full max-w-md text-center">
                     {letterRevealed && <CountdownTimer key={activeAdedonhaRound.id} startTime={activeAdedonhaRound.startTime} duration={activeAdedonhaRound.duration} onEnd={() => setTimeUp(true)} />}
                     <div className="my-4">
@@ -190,7 +190,7 @@ export const AdedonhaGame: React.FC<{ onReturnToMenu: () => void }> = ({ onRetur
 
     if (activeAdedonhaRound.status === 'scoring') {
         return (
-            <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-slate-200">
+            <div className="flex-grow flex flex-col items-center justify-center p-4">
                 <div className="relative bg-slate-800 shadow-2xl rounded-xl p-8 w-full max-w-2xl text-center">
                      <button onClick={onReturnToMenu} className="absolute top-4 left-4 text-slate-400 hover:text-sky-400">
                         <i className="fas fa-arrow-left mr-2"></i>Voltar

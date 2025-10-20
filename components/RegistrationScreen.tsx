@@ -182,7 +182,7 @@ export const RegistrationScreen: React.FC = () => {
     );
 
     return (
-        <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-slate-200 select-none">
+        <div className="flex-grow flex flex-col items-center justify-center p-4 select-none">
             <div className="bg-slate-800 shadow-2xl rounded-xl p-6 md:p-10 w-full max-w-md text-center">
                 <header className="mb-8">
                     <div className="flex flex-col items-center justify-center gap-4">

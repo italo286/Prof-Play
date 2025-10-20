@@ -182,7 +182,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onReturnToMenu }) 
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-slate-200 select-none">
+    <div className="flex-grow flex flex-col items-center justify-center p-4 select-none">
       {isAvatarModalOpen && <AvatarChangeModal user={user} onClose={() => setAvatarModalOpen(false)} onSave={handleAvatarSave} />}
       <EditUsernameModal isOpen={isEditModalOpen} onClose={() => setEditModalOpen(false)} currentName={user.name} />
 

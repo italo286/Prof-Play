@@ -107,15 +107,12 @@ export const AdedonhaTappleGame: React.FC<{ onReturnToMenu: () => void }> = ({ o
 
     if (!activeAdedonhaSession) {
         return (
-            <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-slate-200">
+            <div className="flex-grow flex flex-col items-center justify-center p-4">
                 <div className="relative bg-slate-800 shadow-2xl rounded-xl p-8 w-full max-w-md text-center">
                     <button onClick={onReturnToMenu} className="absolute top-4 left-4 text-slate-400 hover:text-sky-400"><i className="fas fa-arrow-left mr-2"></i>Voltar</button>
                     <i className="fas fa-couch text-5xl text-sky-400 mb-4 animate-pulse"></i>
                     <h1 className="text-2xl font-bold">Lobby da Adedonha Tapple</h1>
                     <p className="text-slate-300 mt-2">Aguardando o professor iniciar o jogo...</p>
-                    <footer className="text-center text-sm text-slate-400 mt-8">
-                        <p>Desenvolvido por Ítalo Natan – 2025</p>
-                    </footer>
                 </div>
             </div>
         );
@@ -123,7 +120,7 @@ export const AdedonhaTappleGame: React.FC<{ onReturnToMenu: () => void }> = ({ o
     
      if (!activeAdedonhaRound || activeAdedonhaRound.status === 'finished') {
          return (
-             <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-slate-200">
+             <div className="flex-grow flex flex-col items-center justify-center p-4">
                 <div className="relative bg-slate-800 shadow-2xl rounded-xl p-8 w-full max-w-lg text-center">
                      <button onClick={onReturnToMenu} className="absolute top-4 left-4 text-slate-400 hover:text-sky-400"><i className="fas fa-arrow-left mr-2"></i>Voltar</button>
                     <i className="fas fa-hourglass-half text-5xl text-sky-400 mb-4"></i>
@@ -146,9 +143,6 @@ export const AdedonhaTappleGame: React.FC<{ onReturnToMenu: () => void }> = ({ o
                         })}
                         </div>
                     </div>
-                     <footer className="text-center text-sm text-slate-400 mt-8">
-                        <p>Desenvolvido por Ítalo Natan – 2025</p>
-                    </footer>
                 </div>
              </div>
          );
@@ -157,7 +151,7 @@ export const AdedonhaTappleGame: React.FC<{ onReturnToMenu: () => void }> = ({ o
     if (activeAdedonhaRound.status === 'playing') {
         const showWaitingMessage = submitted || timeUp;
         return (
-            <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-slate-200">
+            <div className="flex-grow flex flex-col items-center justify-center p-4">
                 <div className="relative bg-slate-800 shadow-2xl rounded-xl p-8 w-full max-w-md text-center">
                     <CountdownTimer key={activeAdedonhaRound.id} startTime={activeAdedonhaRound.startTime} duration={activeAdedonhaRound.duration} onEnd={() => setTimeUp(true)} />
                     <div className="my-4">
@@ -180,9 +174,6 @@ export const AdedonhaTappleGame: React.FC<{ onReturnToMenu: () => void }> = ({ o
                         </form>
                       )
                     }
-                     <footer className="text-center text-sm text-slate-400 mt-8">
-                        <p>Desenvolvido por Ítalo Natan – 2025</p>
-                    </footer>
                 </div>
             </div>
         );
@@ -190,7 +181,7 @@ export const AdedonhaTappleGame: React.FC<{ onReturnToMenu: () => void }> = ({ o
 
     if (activeAdedonhaRound.status === 'scoring') {
         return (
-            <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-slate-200">
+            <div className="flex-grow flex flex-col items-center justify-center p-4">
                 <div className="relative bg-slate-800 shadow-2xl rounded-xl p-8 w-full max-w-2xl text-center">
                      <button onClick={onReturnToMenu} className="absolute top-4 left-4 text-slate-400 hover:text-sky-400"><i className="fas fa-arrow-left mr-2"></i>Voltar</button>
                     <i className="fas fa-gavel text-5xl text-amber-400 mb-4 animate-pulse"></i>
@@ -216,9 +207,6 @@ export const AdedonhaTappleGame: React.FC<{ onReturnToMenu: () => void }> = ({ o
                         })}
                         </div>
                     </div>
-                     <footer className="text-center text-sm text-slate-400 mt-8">
-                        <p>Desenvolvido por Ítalo Natan – 2025</p>
-                    </footer>
                 </div>
             </div>
         );

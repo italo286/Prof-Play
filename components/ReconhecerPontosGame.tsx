@@ -187,14 +187,14 @@ export const ReconhecerPontosGame: React.FC<ReconhecerPontosGameProps> = ({ onRe
   
   if (!targetCoordinate && !gameOver || !user) {
     return (
-      <div className="flex justify-center items-center min-h-screen bg-slate-900">
+      <div className="flex-grow flex justify-center items-center">
         <div className="text-2xl font-semibold text-sky-400">Carregando Jogo...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-slate-200 select-none">
+    <div className="flex-grow flex flex-col items-center justify-center p-4 select-none">
       <PlayerStatsModal isOpen={isStatsModalOpen} onClose={() => setStatsModalOpen(false)} />
       <HintModal 
         isOpen={isHintModalOpen}

@@ -231,7 +231,7 @@ export const CombinacaoTotalGame: React.FC<{ onReturnToMenu: () => void }> = ({ 
     };
 
     return (
-        <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-slate-200">
+        <div className="flex-grow flex flex-col items-center justify-center p-4">
             <div className="relative bg-slate-800 shadow-2xl rounded-xl p-6 md:p-8 w-full max-w-5xl">
                 <button onClick={selectedChallenge ? resetGame : onReturnToMenu} className="absolute top-4 left-4 text-slate-400 hover:text-sky-400 transition-colors z-10 flex items-center p-2 rounded-lg hover:bg-slate-700">
                     <i className="fas fa-arrow-left mr-2"></i>
