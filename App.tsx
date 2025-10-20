@@ -38,13 +38,13 @@ export const isModeUnlocked = (modeId: string, user: UserProfile | null) => {
         case 'coordenadas-geograficas':
             return true;
         case 'encontrar-pontos':
-            return badges.some(b => b.startsWith('geo'));
+            return badges.some(b => b.startsWith('coordenadas-geograficas'));
         case 'reconhecer-pontos':
-            return badges.some(b => b.startsWith('find_points'));
+            return badges.some(b => b.startsWith('encontrar-pontos'));
         case 'simetria-pontos':
-            return badges.some(b => b.startsWith('recognize_points'));
+            return badges.some(b => b.startsWith('reconhecer-pontos'));
         case 'simetria-segmentos':
-            return badges.some(b => b.startsWith('symmetry_points'));
+            return badges.some(b => b.startsWith('simetria-pontos'));
         default:
             return false;
     }

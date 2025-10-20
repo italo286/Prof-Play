@@ -255,7 +255,7 @@ export const CoordenadasGeograficasGame: React.FC<CoordenadasGeograficasGameProp
             successes={sessionStats.firstTry}
             total={challenges.length}
             xpEarned={finalXpGained}
-            badgePrefix="geo"
+            badgePrefix={GAME_ID}
             onRestart={initializeGame}
             onReturnToMenu={onReturnToMenu}
             onAdvance={onAdvance}

@@ -32,11 +32,11 @@ export const GAME_CATEGORIES: GameCategory[] = [
         icon: 'fa-border-all',
         color: 'text-sky-400',
         games: [
-            { id: 'coordenadas-geograficas', name: 'Coordenadas Geográficas', description: 'Identifique a latitude e longitude de pontos no mapa.', icon: 'fa-globe-americas', badgePrefix: 'geo' },
-            { id: 'encontrar-pontos', name: 'Encontrar Pontos', description: 'Localize o par ordenado exibido no plano.', icon: 'fa-search-location', badgePrefix: 'find_points' },
-            { id: 'reconhecer-pontos', name: 'Reconhecer Pontos', description: 'Identifique as coordenadas de um ponto destacado.', icon: 'fa-map-marker-alt', badgePrefix: 'recognize_points' },
-            { id: 'simetria-pontos', name: 'Simetria de Pontos', description: 'Encontre o ponto simétrico em relação a um eixo.', icon: 'fa-exchange-alt', badgePrefix: 'symmetry_points' },
-            { id: 'simetria-segmentos', name: 'Simetria de Segmentos', description: 'Desenhe o segmento de reta simétrico.', icon: 'fa-ruler-combined', badgePrefix: 'segments' },
+            { id: 'coordenadas-geograficas', name: 'Coordenadas Geográficas', description: 'Identifique a latitude e longitude de pontos no mapa.', icon: 'fa-globe-americas', badgePrefix: 'coordenadas-geograficas' },
+            { id: 'encontrar-pontos', name: 'Encontrar Pontos', description: 'Localize o par ordenado exibido no plano.', icon: 'fa-search-location', badgePrefix: 'encontrar-pontos' },
+            { id: 'reconhecer-pontos', name: 'Reconhecer Pontos', description: 'Identifique as coordenadas de um ponto destacado.', icon: 'fa-map-marker-alt', badgePrefix: 'reconhecer-pontos' },
+            { id: 'simetria-pontos', name: 'Simetria de Pontos', description: 'Encontre o ponto simétrico em relação a um eixo.', icon: 'fa-exchange-alt', badgePrefix: 'simetria-pontos' },
+            { id: 'simetria-segmentos', name: 'Simetria de Segmentos', description: 'Desenhe o segmento de reta simétrico.', icon: 'fa-ruler-combined', badgePrefix: 'simetria-segmentos' },
         ]
     },
     {

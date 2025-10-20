@@ -27,9 +27,9 @@ export const GameCategoryView: React.FC<GameCategoryViewProps> = ({ category, on
   const getHighestTierMedal = (badgePrefix: string) => {
       const userBadges = user.badges || [];
       if (userBadges.includes('duelist') && badgePrefix === 'duelist') return <i className="fas fa-user-friends text-amber-600 text-2xl"></i>;
-      if (userBadges.includes(`${badgePrefix}_gold`)) return getTierIcon('gold');
-      if (userBadges.includes(`${badgePrefix}_silver`)) return getTierIcon('silver');
-      if (userBadges.includes(`${badgePrefix}_bronze`)) return getTierIcon('bronze');
+      if (userBadges.some(b => b.startsWith(badgePrefix) && b.endsWith('_gold'))) return getTierIcon('gold');
+      if (userBadges.some(b => b.startsWith(badgePrefix) && b.endsWith('_silver'))) return getTierIcon('silver');
+      if (userBadges.some(b => b.startsWith(badgePrefix) && b.endsWith('_bronze'))) return getTierIcon('bronze');
       return null;
   };
 

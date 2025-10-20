@@ -8,13 +8,13 @@ const gameMedals = (prefix: string, name: string): Badge[] => [
 
 export const ALL_BADGES: Badge[] = [
     // Game Medals
-    ...gameMedals('find_points', 'Encontrar Pontos'),
-    ...gameMedals('recognize_points', 'Reconhecer Pontos'),
-    ...gameMedals('symmetry_points', 'Simetria de Pontos'),
-    ...gameMedals('geo', 'Coords. Geográficas'),
-    ...gameMedals('segments_easy', 'Segmentos (Fácil)'),
-    ...gameMedals('segments_medium', 'Segmentos (Médio)'),
-    ...gameMedals('segments_hard', 'Segmentos (Difícil)'),
+    ...gameMedals('encontrar-pontos', 'Encontrar Pontos'),
+    ...gameMedals('reconhecer-pontos', 'Reconhecer Pontos'),
+    ...gameMedals('simetria-pontos', 'Simetria de Pontos'),
+    ...gameMedals('coordenadas-geograficas', 'Coords. Geográficas'),
+    ...gameMedals('simetria-segmentos_easy', 'Segmentos (Fácil)'),
+    ...gameMedals('simetria-segmentos_medium', 'Segmentos (Médio)'),
+    ...gameMedals('simetria-segmentos_hard', 'Segmentos (Difícil)'),
     ...gameMedals('password_unlock', 'Descubra a Senha'),
     ...gameMedals('adedonha_simples', 'Adedonha Simples'),
     ...gameMedals('adedonha_tapple', 'Adedonha Tapple'),
