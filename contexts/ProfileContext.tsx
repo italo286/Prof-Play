@@ -159,6 +159,12 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
             // 1. Update GameStats
             const gameStats = { ...profile.gameStats };
             const currentStats: GameStat = gameStats[gameId] || { successFirstTry: 0, successOther: 0, errors: 0 };
+            
+            // If the game is being completed for the first time, add a timestamp for ranking.
+            if (!currentStats.completionTimestamp) {
+                currentStats.completionTimestamp = firebase.firestore.FieldValue.serverTimestamp();
+            }
+
             currentStats.successFirstTry += sessionStats.firstTry;
             currentStats.successOther += sessionStats.other;
             currentStats.errors += sessionStats.errors;

@@ -241,31 +241,53 @@ export const SimetriaSegmentosGame: React.FC<SimetriaSegmentosGameProps> = ({ on
       return lines;
   }, [challenge, userClickedPoints]);
 
-  const renderDifficultySelector = () => (
-    <div className="text-center">
-        <header className="text-center mb-6">
-          <div className="flex flex-col items-center justify-center gap-2">
-            <img src="https://i.ibb.co/bqK98gY/Google-AI-Studio-2025-08-22-T01-43-41-630-Z.png" alt="Logo do App" className="h-16 w-16 object-contain"/>
-            <h1 className="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-sky-500 to-cyan-400">
-              Simetria de Segmentos
-            </h1>
-          </div>
-        </header>
-        <MessageDisplay message={userMessage} type={messageType} />
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-            {(['easy', 'medium', 'hard'] as Difficulty[]).map(d => (
-                <button
-                    key={d}
-                    onClick={() => startGame(d)}
-                    className="p-6 bg-slate-800 rounded-lg shadow-md hover:shadow-xl hover:-translate-y-1 transition-transform transform border-2 border-transparent hover:border-sky-500"
-                >
-                    <h3 className="text-xl font-semibold text-sky-300 capitalize">{d === 'easy' ? 'Fácil' : d === 'medium' ? 'Médio' : 'Difícil'}</h3>
-                    <p className="text-sm text-slate-300 mt-1">{({easy: '2 Pontos', medium: '3 Pontos', hard: '4 Pontos'})[d]}</p>
-                </button>
-            ))}
+  const renderDifficultySelector = () => {
+    const mediumUnlocked = user.badges.some(b => b.startsWith(`${GAME_ID}_easy`));
+    const hardUnlocked = user.badges.some(b => b.startsWith(`${GAME_ID}_medium`));
+
+    const difficulties: {id: Difficulty, name: string, points: string, unlocked: boolean, unlockMessage: string}[] = [
+        { id: 'easy', name: 'Fácil', points: '2 Pontos', unlocked: true, unlockMessage: ''},
+        { id: 'medium', name: 'Médio', points: '3 Pontos', unlocked: mediumUnlocked, unlockMessage: 'Complete o modo Fácil'},
+        { id: 'hard', name: 'Difícil', points: '4 Pontos', unlocked: hardUnlocked, unlockMessage: 'Complete o modo Médio'},
+    ];
+
+    return (
+        <div className="text-center">
+            <header className="text-center mb-6">
+            <div className="flex flex-col items-center justify-center gap-2">
+                <img src="https://i.ibb.co/bqK98gY/Google-AI-Studio-2025-08-22-T01-43-41-630-Z.png" alt="Logo do App" className="h-16 w-16 object-contain"/>
+                <h1 className="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-sky-500 to-cyan-400">
+                Simetria de Segmentos
+                </h1>
+            </div>
+            </header>
+            <MessageDisplay message={userMessage} type={messageType} />
+            <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+                {difficulties.map(d => (
+                    <button
+                        key={d.id}
+                        onClick={() => d.unlocked && startGame(d.id)}
+                        disabled={!d.unlocked}
+                        className={`p-6 bg-slate-800 rounded-lg shadow-md transition-transform transform border-2 
+                                    ${d.unlocked 
+                                        ? 'border-transparent hover:border-sky-500 hover:-translate-y-1' 
+                                        : 'opacity-60 cursor-not-allowed border-slate-700'
+                                    }`}
+                    >
+                        <h3 className={`text-xl font-semibold capitalize ${d.unlocked ? 'text-sky-300' : 'text-slate-400'}`}>{d.name}</h3>
+                        <p className={`text-sm mt-1 ${d.unlocked ? 'text-slate-300' : 'text-slate-500'}`}>{d.points}</p>
+                         {!d.unlocked && (
+                            <div className="mt-3 text-xs font-bold text-yellow-400 flex items-center justify-center gap-1">
+                                <i className="fas fa-lock"></i>
+                                <span>{d.unlockMessage}</span>
+                            </div>
+                        )}
+                    </button>
+                ))}
+            </div>
         </div>
-    </div>
-  );
+    );
+  }
   
   if (!user) return null;
 
@@ -344,6 +366,7 @@ export const SimetriaSegmentosGame: React.FC<SimetriaSegmentosGameProps> = ({ on
               </div>
             )}
 
+            {/* FIX: The `message` prop was using an undefined `message` variable instead of `userMessage`. */}
             {userMessage && <MessageDisplay message={userMessage} type={messageType} />}
 
             <div className="relative my-6 flex justify-center">
