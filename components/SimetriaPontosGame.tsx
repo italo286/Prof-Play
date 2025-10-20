@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useContext } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useContext, useRef } from 'react';
 import { CartesianPlane } from './CartesianPlane';
 import { MessageDisplay } from './MessageDisplay';
 import { ResultsScreen } from './ResultsScreen';
@@ -77,6 +77,9 @@ export const SimetriaPontosGame: React.FC<SimetriaPontosGameProps> = ({ onReturn
   const [hintUsedInChallenge, setHintUsedInChallenge] = useState(false);
   
   const levelColor = user ? getLevelColor(user.level) : 'from-slate-500 to-sky-600';
+
+  const sessionStatsRef = useRef(sessionStats);
+  sessionStatsRef.current = sessionStats;
   
   const completeGame = useCallback(async () => {
     setGameOver(true);
@@ -84,12 +87,12 @@ export const SimetriaPontosGame: React.FC<SimetriaPontosGameProps> = ({ onReturn
     setChallenge(null);
     
     const totalXP = await finalizeStandardGame(GAME_ID, {
-      ...sessionStats,
+      ...sessionStatsRef.current,
       totalChallenges: TOTAL_CHALLENGES,
     });
     
     setFinalXpGained(totalXP);
-  }, [finalizeStandardGame, sessionStats]);
+  }, [finalizeStandardGame]);
   
   const resetChallengeState = () => {
       setIsFirstAttempt(true);
