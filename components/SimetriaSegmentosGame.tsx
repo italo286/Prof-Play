@@ -202,10 +202,10 @@ export const SimetriaSegmentosGame: React.FC<SimetriaSegmentosGameProps> = ({ on
   }, [userClickedPoints, challenge, isFirstAttempt, nextChallenge, difficulty]);
 
   useEffect(() => {
-    if (userClickedPoints.length === pointsToWin && pointsToWin > 0) {
+    if (userClickedPoints.length === pointsToWin && pointsToWin > 0 && !isChecking) {
       checkAnswer();
     }
-  }, [userClickedPoints, pointsToWin, checkAnswer]);
+  }, [userClickedPoints, pointsToWin, checkAnswer, isChecking]);
 
   const handlePointSelected = (x: number, y: number) => {
     if (isChecking || gameOver || !challenge || userClickedPoints.length >= pointsToWin) return;
@@ -339,6 +339,7 @@ export const SimetriaSegmentosGame: React.FC<SimetriaSegmentosGameProps> = ({ on
               </div>
             )}
 
+            {/* FIX: The variable 'message' was undefined. Replaced with 'userMessage'. */}
             {userMessage && <MessageDisplay message={userMessage} type={messageType} />}
 
             <div className="relative my-6 flex justify-center">
